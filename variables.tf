@@ -1,5 +1,5 @@
 variable "subscription_id" {
-  description = "Azure subscription ID. Azure CLI の既定サブスクリプションを使う場合は null のままでも構いません。"
+  description = "Azure subscription ID. Leave null to use the current Azure CLI subscription."
   type        = string
   default     = null
 }
@@ -47,7 +47,7 @@ variable "vnet_name" {
 variable "vnet_address_space" {
   description = "Virtual network address space."
   type        = list(string)
-  default     = ["10.30.0.0/22"]
+  default     = ["10.30.0.0/23"]
 }
 
 variable "dns_servers" {
@@ -75,9 +75,9 @@ variable "snet_aca_infra_name" {
 }
 
 variable "snet_aca_infra_prefixes" {
-  description = "Subnet CIDR for Azure Container Apps environment. /21 or larger is required when using infrastructure_subnet_id."
+  description = "Subnet CIDR for future Azure Container Apps workload profiles environment."
   type        = list(string)
-  default     = ["10.30.0.0/23"]
+  default     = ["10.30.0.0/24"]
 }
 
 variable "snet_private_endpoint_name" {
@@ -89,7 +89,7 @@ variable "snet_private_endpoint_name" {
 variable "snet_private_endpoint_prefixes" {
   description = "Subnet CIDR for private endpoints."
   type        = list(string)
-  default     = ["10.30.2.0/24"]
+  default     = ["10.30.1.0/25"]
 }
 
 variable "snet_admin_name" {
@@ -101,7 +101,7 @@ variable "snet_admin_name" {
 variable "snet_admin_prefixes" {
   description = "Subnet CIDR for optional admin VM."
   type        = list(string)
-  default     = ["10.30.3.0/27"]
+  default     = ["10.30.1.128/28"]
 }
 
 variable "ai_name" {
@@ -366,7 +366,7 @@ variable "admin_username" {
 variable "admin_private_ip_address" {
   description = "Static private IP address for the optional admin VM."
   type        = string
-  default     = "10.30.3.10"
+  default     = "10.30.1.132"
 }
 
 variable "admin_ssh_public_key" {
@@ -377,7 +377,7 @@ variable "admin_ssh_public_key" {
 }
 
 variable "hub_azure_bastion_subnet_prefix" {
-  description = "Hub-side AzureBastionSubnet CIDR allowed to SSH to the optional admin VM."
+  description = "Hub-side AzureBastionSubnet CIDR allowed to SSH to the optional admin VM. Leave null in phase 1 to skip the SSH allow rule."
   type        = string
   default     = null
 }

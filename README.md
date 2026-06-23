@@ -1,31 +1,102 @@
 # OCR Demo Terraform
 
-Azure OCR-Demo PoC 用の Terraform です。使い回しやすいように、第1フェーズの閉域基盤と、第2フェーズのアプリ基盤を分けています。
+Terraform code for the Azure OCR-Demo PoC. The repository separates the private foundation layer from the later application layer.
 
-## 構成
+## Structure
 
-- `01-foundation-network-ai`: Resource Group、VNet、Subnet、Azure AI Foundry、Blob Storage、Key Vault、Private Endpoint、Private DNS、Log Analytics、管理VM
-- `02-app`: ACR、User Assigned Managed Identity、Container Apps Environment、API/UI Container App、Role Assignment
+- `01-foundation-network-ai`: Resource Group, VNet, subnets, Azure AI Services/Foundry project, Blob Storage, Key Vault, Private Endpoints, Private DNS Zones, Log Analytics, and a private admin VM.
+- `02-app`: Future application layer for ACR, managed identities, Container Apps, role assignments, API, and UI.
 
-## 第1フェーズのネットワーク
+## Phase 1 Network
 
-`01-foundation-network-ai/terraform.tfvars` の既定ネットワークは以下です。
+The phase 1 network in `01-foundation-network-ai/terraform.tfvars` is intentionally small.
 
 ```hcl
-vnet_address_space = ["10.30.0.0/22"]
+vnet_address_space = ["10.30.0.0/23"]
 
-snet_aca_infra_prefixes        = ["10.30.0.0/23"]
-snet_private_endpoint_prefixes = ["10.30.2.0/24"]
-snet_admin_prefixes            = ["10.30.3.0/27"]
+snet_aca_infra_prefixes        = ["10.30.0.0/24"]
+snet_private_endpoint_prefixes = ["10.30.1.0/25"]
+snet_admin_prefixes            = ["10.30.1.128/28"]
 
-admin_private_ip_address = "10.30.3.10"
+admin_private_ip_address = "10.30.1.132"
 ```
 
-予備領域として `10.30.3.32` から `10.30.3.255` を残しています。
+The remaining `10.30.1.144` to `10.30.1.255` range is reserved for future use.
 
-## 実行順
+## Required Values
 
-先に `01-foundation-network-ai` を実行します。
+Check these values before applying in each environment.
+
+| File | Variable | Notes |
+|---|---|---|
+| `01-foundation-network-ai/terraform.tfvars` | `subscription_id` | Leave as `null` to use the current Azure CLI subscription, or set explicitly. |
+| `01-foundation-network-ai/terraform.tfvars` | `storage_account_name` | Must be globally unique, 3-24 lowercase letters and numbers. |
+| `01-foundation-network-ai/terraform.tfvars` | `key_vault_name` | Must be globally unique. |
+| `01-foundation-network-ai/terraform.tfvars` | `admin_ssh_public_key` | Required when `create_admin_vm = true`. Use only a public key, never a private key. |
+| `01-foundation-network-ai/terraform.tfvars` | `hub_azure_bastion_subnet_prefix` | Optional in phase 1. If `null`, no SSH allow rule is created. |
+| `01-foundation-network-ai/terraform.tfvars` | `hub_firewall_private_ip` | Set the Hub Azure Firewall private IP before enabling UDR. |
+| `02-app/terraform.tfvars` | `acr_name` | Must be globally unique when the app phase is implemented. |
+
+## Phase 1 Settings
+
+Phase 1 creates the admin VM, but it does not attach a Public IP. The NIC uses a static private IP in `snet-admin`.
+
+```hcl
+create_admin_vm          = true
+admin_private_ip_address = "10.30.1.132"
+admin_ssh_public_key     = "<SSH public key>"
+```
+
+Private-only access is enabled for Azure AI Services, Storage, and Key Vault.
+
+```hcl
+enable_ai_private_only_access        = true
+enable_storage_private_only_access   = true
+enable_key_vault_private_only_access = true
+```
+
+For this PoC, Storage Account shared key access is temporarily enabled so Terraform can continue from Azure Cloud Shell. This does not reopen Storage public network access.
+
+```hcl
+storage_shared_access_key_enabled = true
+```
+
+Blob containers are not created in phase 1 because private-only Storage can block Terraform data-plane access from Cloud Shell.
+
+```hcl
+create_blob_container = false
+```
+
+## UDR And Firewall Notes
+
+UDR is prepared but disabled in phase 1 because the Hub connection may not exist yet.
+
+```hcl
+enable_udr_to_hub_firewall = false
+hub_firewall_private_ip    = "<Hub Firewall Private IP>"
+```
+
+When UDR is enabled later, the route table is associated only with `snet-aca-infra` and `snet-admin`. It is not associated with `snet-private-endpoint`.
+
+When UDR to the hub firewall is enabled, Azure Container Apps may require limited outbound access for platform dependencies, Managed Identity token acquisition, container image pulls, and monitoring.
+
+Candidate outbound destinations to review with the network team include:
+
+- `mcr.microsoft.com`
+- `*.data.mcr.microsoft.com`
+- `packages.aks.azure.com`
+- `acs-mirror.azureedge.net`
+- `login.microsoftonline.com`
+- `*.login.microsoftonline.com`
+- `*.identity.azure.net`
+- `<ACR name>.azurecr.io`
+- Azure Monitor / Log Analytics endpoints or AMPLS design
+
+Business application traffic should use Private Endpoints or on-premises routes wherever possible. Firewall rules themselves are managed outside this Spoke Terraform.
+
+## Run
+
+Run the foundation first.
 
 ```powershell
 cd 01-foundation-network-ai
@@ -36,16 +107,12 @@ terraform plan -out main.tfplan
 terraform apply main.tfplan
 ```
 
-その後、ACR にイメージを作成します。
+After the app phase is implemented, build images and apply `02-app`.
 
 ```powershell
 az acr build --registry <acr_name> --image ocr-demo-api:v1 ./src/backend
 az acr build --registry <acr_name> --image ocr-demo-ui:v1 ./src/ui
-```
 
-最後に `02-app` を実行します。
-
-```powershell
 cd ../02-app
 terraform init
 terraform fmt
@@ -54,72 +121,6 @@ terraform plan -out main.tfplan
 terraform apply main.tfplan
 ```
 
-## 必ず確認する変数
+## Caution
 
-環境ごとに最低限、以下を確認してください。
-
-| ファイル | 変数 | 説明 |
-|---|---|---|
-| `01-foundation-network-ai/terraform.tfvars` | `subscription_id` | Azure CLI の既定サブスクリプションを使う場合は `null` のままで可。 |
-| `01-foundation-network-ai/terraform.tfvars` | `location` / `ai_location` | 既定は `japaneast`。 |
-| `01-foundation-network-ai/terraform.tfvars` | `resource_group_name` | 既定は `rg-ocr-demo-dev`。 |
-| `01-foundation-network-ai/terraform.tfvars` | `storage_account_name` | Azure 全体で一意。英小文字と数字のみ、3-24文字。 |
-| `01-foundation-network-ai/terraform.tfvars` | `key_vault_name` | Azure 全体で一意。 |
-| `01-foundation-network-ai/terraform.tfvars` | `hub_firewall_private_ip` | Hub Azure Firewall の Private IP。第1段階では UDR 無効でも値を保持できます。 |
-| `01-foundation-network-ai/terraform.tfvars` | `enable_udr_to_hub_firewall` | 第1段階は `false`。Hub 接続後に `true` へ変更します。 |
-| `01-foundation-network-ai/terraform.tfvars` | `hub_azure_bastion_subnet_prefix` | 管理VMへのSSH許可元。Hub 側 `AzureBastionSubnet` の CIDR。 |
-| `01-foundation-network-ai/terraform.tfvars` | `admin_ssh_public_key` | 管理VMのSSH公開鍵。 |
-| `02-app/terraform.tfvars` | `acr_name` | Azure 全体で一意。英小文字と数字のみ。 |
-
-## 閉域設定
-
-第1フェーズは Private Endpoint 経由の閉域確認を優先します。
-
-```hcl
-enable_ai_private_only_access        = true
-enable_storage_private_only_access   = true
-enable_key_vault_private_only_access = true
-```
-
-PoC 継続のため、Storage Account は一時的に Shared Key 認証を許可しています。これは Public Network Access を開ける設定ではありません。
-
-```hcl
-storage_shared_access_key_enabled = true
-```
-
-本番寄せでは、アプリの Managed Identity と RBAC へ移行したうえで `false` に戻す想定です。
-
-## 管理VM
-
-管理VMは第1段階で作成します。
-
-```hcl
-create_admin_vm = true
-```
-
-Public IP は付けません。`snet-admin` に静的 Private IP `10.30.3.10` を割り当てます。
-
-実行前に以下を自分の環境に合わせて設定してください。
-
-```hcl
-admin_ssh_public_key = "<SSH公開鍵>"
-```
-
-`hub_azure_bastion_subnet_prefix` は任意です。第1段階でHub未接続の場合は `null` のままでよく、その場合SSH許可ルールは作成されません。値を入れるとHub側 Azure Bastion からのSSH許可ルールだけが追加されます。
-
-SSH秘密鍵はTerraformに入れません。Terraformに入れるのはSSH公開鍵のみです。
-
-## UDR
-
-第1段階ではHub未接続のため、UDRは無効です。
-
-```hcl
-enable_udr_to_hub_firewall = false
-hub_firewall_private_ip    = null
-```
-
-第2段階でHub接続後、`hub_firewall_private_ip` にHub Azure FirewallのPrivate IPを設定し、`enable_udr_to_hub_firewall = true` にします。UDRを有効化しても、Route Tableを関連付けるのは `snet-aca-infra` と `snet-admin` のみです。`snet-private-endpoint` には関連付けません。
-
-## 注意
-
-VNet や Subnet の CIDR を変更すると、既存 Azure リソースがある場合は作り直しになる可能性があります。PoC 環境を作り直してよい場合は、既存 Resource Group を削除してから fresh apply する方が安全です。
+Changing VNet or subnet CIDR ranges can force recreation of existing Azure resources. For a disposable PoC environment, deleting the existing Resource Group and applying fresh is often cleaner than changing an already partially-created environment.
