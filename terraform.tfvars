@@ -14,8 +14,16 @@ tags = {
 }
 
 vnet_name          = "vnet-ocr-demo-dev"
-vnet_address_space = ["10.30.0.0/21"]
+vnet_address_space = ["10.30.0.0/22"]
 dns_servers        = []
+
+# Hub FirewallのPrivate IPは確定済みの値を設定します。
+# ただし第1段階ではHub未接続のため、UDR自体は無効化します。
+hub_firewall_private_ip = null
+
+# 第1段階ではfalse。
+# 第2段階でHub接続後にtrueへ変更し、Spoke通信をHub Firewallへ向けます。
+enable_udr_to_hub_firewall = false
 
 snet_aca_infra_name          = "snet-aca-infra"
 snet_aca_infra_prefixes      = ["10.30.0.0/23"]

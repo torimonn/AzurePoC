@@ -31,7 +31,11 @@
 | `azurerm_storage_account` | OCR対象ファイルや結果JSON用 Blob Storage | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_account / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/storage_account.html.markdown | Storage Account を管理するリソース。`StorageV2`, `public_network_access_enabled`, `allow_nested_items_to_be_public`, `shared_access_key_enabled`, `network_rules` を使う。 |
 | `azurerm_storage_container` | 将来用 Blob Container optional 作成 | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_container / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/storage_container.html.markdown | Container は初期状態では作成しない。作成する場合は `create_blob_container = true` のときだけ作成し、現在推奨される `storage_account_id` を使用する。 |
 | `azurerm_key_vault` | アプリ用シークレットや証明書の閉域管理基盤 | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/key_vault.html.markdown | Key Vault を管理するリソース。`enable_rbac_authorization = true`, `public_network_access_enabled`, `network_acls`, `soft_delete_retention_days`, `purge_protection_enabled` を使う。 |
+| `azurerm_route_table` | Hub Firewall 向けUDR用 Route Table | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/route_table | 第1段階では `enable_udr_to_hub_firewall = false` のため作成しない。Hub接続後に有効化する。 |
+| `azurerm_route` | Default route を Hub Firewall に向けるUDR | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/route | `next_hop_type = "VirtualAppliance"` と Hub Firewall Private IP を使う。 |
+| `azurerm_subnet_route_table_association` | ACA/Admin Subnet と Route Table の関連付け | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_route_table_association / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/subnet_route_table_association.html.markdown | Route Tableを関連付けるのは `snet-aca-infra` と `snet-admin` のみ。Private Endpoint Subnetには関連付けない。 |
 | `azurerm_network_security_group` | 管理VM用 NSG | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_group / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/network_security_group.html.markdown | 管理VMに対する SSH 許可元を Hub 側 `AzureBastionSubnet` のCIDRに限定するために使用。 |
+| `azurerm_network_security_rule` | Hub Bastion から管理VMへのSSH許可 | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_rule / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/network_security_rule.html.markdown | NSG本体にインラインルールを書かず、Hub Bastion CIDRが入った場合だけ作成する。 |
 | `azurerm_subnet_network_security_group_association` | `snet-admin` と NSG の関連付け | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/subnet_network_security_group_association.html.markdown | Subnet に NSG を関連付けるために使用。 |
 | `azurerm_network_interface` | 管理VM用 NIC | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_interface / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/network_interface.html.markdown | 管理VMを `snet-admin` に静的 Private IP で配置するために使用。Public IP は付けない。 |
 | `azurerm_linux_virtual_machine` | 閉域確認用 管理VM | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine / https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/linux_virtual_machine.html.markdown | VNet 内から Private Endpoint / Private DNS の疎通確認を行う任意リソースとして使用。 |
@@ -106,6 +110,20 @@ Private Endpoint 用サブネットも、`10.30.0.0/21` と重複しないよう
    - `enable_key_vault_private_only_access = true` の場合、Key Vault は `public_network_access_enabled = false`, `network_acls.default_action = "Deny"`。
 
 Azure AI Search、Key Vault Secret、Storage/Key Vault向けアプリ用Role Assignment、Container Apps、ACRは追加していない。
+
+### VNet / UDR / 管理VM SSHルールの調整
+
+2026-06-23 に、GitHub `torimonn/AzurePoC` とローカルのTerraform 5ファイルが一致していることを確認したうえで、追加要件として以下を反映した。
+
+1. VNet全体を `10.30.0.0/22` に縮小。
+2. Subnet は `snet-aca-infra = 10.30.0.0/23`, `snet-private-endpoint = 10.30.2.0/24`, `snet-admin = 10.30.3.0/27` を維持。
+3. Private Endpoint Subnet に `private_endpoint_network_policies = "Disabled"` を明示。
+4. UDR用に `enable_udr_to_hub_firewall` と `hub_firewall_private_ip` を追加。
+5. `enable_udr_to_hub_firewall = true` の場合のみ Route Table / Default route / ACA Subnet association / Admin Subnet association を作成。
+6. Private Endpoint SubnetにはRoute Tableを関連付けない。
+7. 管理VM用NSGからインライン `security_rule` を削除し、`azurerm_network_security_rule.admin_ssh_from_hub_bastion` に分離。
+8. `hub_azure_bastion_subnet_prefix = null` の場合、SSH許可ルールは作成しない。
+9. `hub_azure_bastion_subnet_prefix` を必須にするpreconditionは削除し、SSH公開鍵のpreconditionのみ維持。
 
 ## 注意点
 

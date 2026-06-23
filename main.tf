@@ -55,6 +55,8 @@ resource "azurerm_subnet" "private_endpoint" {
   resource_group_name  = azurerm_resource_group.this.name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = var.snet_private_endpoint_prefixes
+
+  private_endpoint_network_policies = "Disabled"
 }
 
 resource "azurerm_subnet" "admin" {
@@ -64,6 +66,47 @@ resource "azurerm_subnet" "admin" {
   resource_group_name  = azurerm_resource_group.this.name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = var.snet_admin_prefixes
+}
+
+resource "azurerm_route_table" "spoke_to_hub_firewall" {
+  count = var.enable_udr_to_hub_firewall ? 1 : 0
+
+  name                = "rt-${var.name_prefix}-${var.env}-to-hub-fw"
+  location            = azurerm_resource_group.this.location
+  resource_group_name = azurerm_resource_group.this.name
+  tags                = var.tags
+}
+
+resource "azurerm_route" "default_to_hub_firewall" {
+  count = var.enable_udr_to_hub_firewall ? 1 : 0
+
+  name                   = "default-to-hub-firewall"
+  resource_group_name    = azurerm_resource_group.this.name
+  route_table_name       = azurerm_route_table.spoke_to_hub_firewall[0].name
+  address_prefix         = "0.0.0.0/0"
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = var.hub_firewall_private_ip
+
+  lifecycle {
+    precondition {
+      condition     = var.hub_firewall_private_ip != null
+      error_message = "hub_firewall_private_ip is required when enable_udr_to_hub_firewall is true."
+    }
+  }
+}
+
+resource "azurerm_subnet_route_table_association" "aca_infra" {
+  count = var.enable_udr_to_hub_firewall ? 1 : 0
+
+  subnet_id      = azurerm_subnet.aca_infra.id
+  route_table_id = azurerm_route_table.spoke_to_hub_firewall[0].id
+}
+
+resource "azurerm_subnet_route_table_association" "admin" {
+  count = var.create_admin_vm && var.enable_udr_to_hub_firewall ? 1 : 0
+
+  subnet_id      = azurerm_subnet.admin[0].id
+  route_table_id = azurerm_route_table.spoke_to_hub_firewall[0].id
 }
 
 resource "azurerm_log_analytics_workspace" "this" {
@@ -283,18 +326,22 @@ resource "azurerm_network_security_group" "admin" {
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
   tags                = var.tags
+}
 
-  security_rule {
-    name                       = "Allow-SSH-From-Hub-Bastion"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = var.hub_azure_bastion_subnet_prefix
-    destination_address_prefix = "*"
-  }
+resource "azurerm_network_security_rule" "admin_ssh_from_hub_bastion" {
+  count = var.create_admin_vm && var.hub_azure_bastion_subnet_prefix != null ? 1 : 0
+
+  name                        = "Allow-SSH-From-Hub-Bastion"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "22"
+  source_address_prefix       = var.hub_azure_bastion_subnet_prefix
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.this.name
+  network_security_group_name = azurerm_network_security_group.admin[0].name
 }
 
 resource "azurerm_subnet_network_security_group_association" "admin" {
@@ -353,11 +400,6 @@ resource "azurerm_linux_virtual_machine" "admin" {
     precondition {
       condition     = !var.create_admin_vm || var.admin_ssh_public_key != null
       error_message = "admin_ssh_public_key is required when create_admin_vm is true."
-    }
-
-    precondition {
-      condition     = !var.create_admin_vm || var.hub_azure_bastion_subnet_prefix != null
-      error_message = "hub_azure_bastion_subnet_prefix is required when create_admin_vm is true."
     }
   }
 }

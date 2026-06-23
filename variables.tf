@@ -47,13 +47,25 @@ variable "vnet_name" {
 variable "vnet_address_space" {
   description = "Virtual network address space."
   type        = list(string)
-  default     = ["10.30.0.0/21"]
+  default     = ["10.30.0.0/22"]
 }
 
 variable "dns_servers" {
   description = "Custom DNS servers. Empty list uses Azure-provided DNS."
   type        = list(string)
   default     = []
+}
+
+variable "enable_udr_to_hub_firewall" {
+  description = "Whether to create and associate a route table that sends subnet traffic to the hub firewall."
+  type        = bool
+  default     = false
+}
+
+variable "hub_firewall_private_ip" {
+  description = "Private IP address of the hub Azure Firewall used as the next hop for UDR. Set this value even if UDR is disabled in phase 1."
+  type        = string
+  default     = null
 }
 
 variable "snet_aca_infra_name" {

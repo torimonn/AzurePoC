@@ -55,6 +55,18 @@ output "admin_vm_private_ip" {
   value = try(azurerm_network_interface.admin[0].private_ip_address, null)
 }
 
+output "udr_to_hub_firewall_enabled" {
+  value = var.enable_udr_to_hub_firewall
+}
+
+output "hub_firewall_private_ip" {
+  value = var.hub_firewall_private_ip
+}
+
+output "route_table_id" {
+  value = try(azurerm_route_table.spoke_to_hub_firewall[0].id, null)
+}
+
 output "storage_account_id" {
   value = try(azurerm_storage_account.blob[0].id, null)
 }
