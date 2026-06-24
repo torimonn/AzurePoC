@@ -1,14 +1,14 @@
-# Terraform Documentation Evidence
+# Terraform公式ドキュメント確認メモ
 
-Collected: 2026-06-24
+取得日: 2026-06-24
 
-This note records the official documentation checks used for the OCR-Demo Terraform code.
+このファイルは、OCR-DemoのTerraformコードで使っている主要リソースについて、公式ドキュメント上の確認結果を整理したものです。
 
-## Checked Terraform Provider Resources
+## 確認したTerraform Providerリソース
 
-The Terraform Registry UI requires JavaScript, so the evidence below also references the matching HashiCorp `terraform-provider-azurerm` Markdown files from the official provider repository.
+Terraform Registryはブラウザ上でJavaScript表示になるため、証跡としてHashiCorp公式の `terraform-provider-azurerm` リポジトリ内Markdownも参照対象にしています。
 
-| Area | Terraform resource | Official documentation |
+| 区分 | Terraformリソース | 公式ドキュメント |
 |---|---|---|
 | Provider | `hashicorp/azurerm` | https://registry.terraform.io/providers/hashicorp/azurerm/latest |
 | VNet | `azurerm_virtual_network` | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network |
@@ -29,49 +29,48 @@ The Terraform Registry UI requires JavaScript, so the evidence below also refere
 | NIC | `azurerm_network_interface` | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_interface |
 | Linux VM | `azurerm_linux_virtual_machine` | https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine |
 
-## Current Phase 1 Network Design
+## 現在の第1段階ネットワーク設計
 
-The phase 1 foundation uses a compact `/23` VNet:
+第1段階の基盤は、IPを節約するため以下の `/23` VNet構成にしています。
 
 ```text
-VNet:                     10.30.0.0/23
-ACA infrastructure subnet: 10.30.0.0/24
-Private Endpoint subnet:   10.30.1.0/25
-Admin VM subnet:           10.30.1.128/28
-Admin VM private IP:       10.30.1.132
-Reserved:                  10.30.1.144 - 10.30.1.255
+VNet全体:                  10.30.0.0/23
+ACA用Subnet:               10.30.0.0/24
+Private Endpoint用Subnet:  10.30.1.0/25
+管理VM用Subnet:            10.30.1.128/28
+管理VMのPrivate IP:        10.30.1.132
+予備:                      10.30.1.144 - 10.30.1.255
 ```
 
-The ACA subnet is intended for a future Azure Container Apps workload profiles environment. Microsoft Learn states that workload profiles environments support UDR and require a minimum subnet size of `/27`, while legacy consumption-only environments require `/23` and do not support UDR.
+ACA用Subnetは、将来のAzure Container Apps Workload profiles環境を想定しています。Microsoft Learnでは、Workload profiles環境はUDRをサポートし、最小Subnetサイズは `/27` とされています。一方、従来のConsumption only環境は `/23` が必要で、UDRをサポートしません。
 
-## Implementation Notes
+## 実装メモ
 
-- `azurerm_subnet.private_endpoint` explicitly sets `private_endpoint_network_policies = "Disabled"`, matching the provider documentation for Private Endpoint subnets.
-- Azure AI private DNS zones are kept as three separate zones:
+- Private Endpoint用Subnetでは、`private_endpoint_network_policies = "Disabled"` を明示しています。
+- Azure AI系のPrivate DNS Zoneは以下3つを維持しています。
   - `privatelink.cognitiveservices.azure.com`
   - `privatelink.openai.azure.com`
   - `privatelink.services.ai.azure.com`
-- Blob and Key Vault private DNS zones are also included:
+- Blob用とKey Vault用のPrivate DNS Zoneも作成します。
   - `privatelink.blob.core.windows.net`
   - `privatelink.vaultcore.azure.net`
-- `azurerm_key_vault.this` uses `rbac_authorization_enabled = true`, which is the current provider argument for enabling Azure RBAC authorization.
-- Storage Account keeps `shared_access_key_enabled = true` for the PoC Cloud Shell Terraform workflow, while public network access remains controlled separately by `public_network_access_enabled` and network rules.
-- Blob containers are optional and disabled by default with `create_blob_container = false` because data-plane access may fail from Cloud Shell after private-only access is enabled.
-- No Key Vault secret resources are created in phase 1.
-- Admin VM is private-only:
-  - No public IP resource is used.
-  - The NIC has only private IP configuration.
-  - The private IP is static.
-  - SSH rule creation depends on `hub_azure_bastion_subnet_prefix != null`.
-- UDR resources are created only when `enable_udr_to_hub_firewall = true`.
-- Route table association is limited to ACA and Admin subnets. The Private Endpoint subnet is intentionally not associated.
-- Azure DNS Private Resolver resources are intentionally not created in this Spoke Terraform because DNS Resolver belongs to the Hub shared foundation.
+- Key Vaultは `rbac_authorization_enabled = true` を使い、Access Policy方式ではなくAzure RBAC方式にしています。
+- Storage Accountは、Cloud ShellからのPoC実行を通すため `shared_access_key_enabled = true` を維持しています。ただしPublic Network Accessは別設定で閉じます。
+- Blob Containerは `create_blob_container = false` を既定にしています。Private Only Storageでは、Cloud Shellからのデータプレーン操作が失敗する可能性があるためです。
+- 第1段階ではKey Vault Secretを作成しません。Secret値をTerraform stateに残さないためです。
+- 管理VMは閉域確認用で、Public IPなしの構成です。
+  - NICはPrivate IPのみです。
+  - Private IPは固定です。
+  - SSH許可ルールは `hub_azure_bastion_subnet_prefix` に値がある場合だけ作成します。
+- UDRリソースは `enable_udr_to_hub_firewall = true` の場合だけ作成します。
+- Route Tableを関連付ける対象は、ACA用Subnetと管理VM用Subnetだけです。Private Endpoint用Subnetには関連付けません。
+- Azure DNS Private ResolverはこのSpoke Terraformでは作成しません。Hub側共通基盤で扱う想定です。
 
-## Firewall And Outbound Access Note
+## Firewallと外向き通信の注意点
 
-When UDR to the hub firewall is enabled, Azure Container Apps may require limited outbound access for platform dependencies, Managed Identity token acquisition, container image pulls, and monitoring.
+UDRでHub Firewallへ向ける場合、Azure Container Appsの基盤通信、Managed Identityのトークン取得、コンテナイメージ取得、監視ログ送信のために、Hub Firewall側で限定的な外向き通信許可が必要になる可能性があります。
 
-Candidate outbound destinations to review with the network team include:
+ネットワーク担当と確認する候補は以下です。
 
 - `mcr.microsoft.com`
 - `*.data.mcr.microsoft.com`
@@ -81,6 +80,6 @@ Candidate outbound destinations to review with the network team include:
 - `*.login.microsoftonline.com`
 - `*.identity.azure.net`
 - `<ACR name>.azurecr.io`
-- Azure Monitor / Log Analytics endpoints or AMPLS design
+- Azure Monitor / Log Analytics endpoints または AMPLS 設計
 
-Business application traffic should use Private Endpoints or on-premises routes wherever possible. Firewall rules themselves are managed outside this Spoke Terraform.
+業務アプリの通信は、可能な限りPrivate Endpointまたはオンプレミス向け経路を使う想定です。Firewallルール自体は、このSpoke Terraformでは作成しません。

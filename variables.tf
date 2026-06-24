@@ -1,35 +1,35 @@
 variable "subscription_id" {
-  description = "Azure subscription ID. Leave null to use the current Azure CLI subscription."
+  description = "AzureサブスクリプションID。現在のAzure CLIサブスクリプションを使う場合はnullのままで構いません。"
   type        = string
   default     = null
 }
 
 variable "env" {
-  description = "Environment name."
+  description = "環境名。"
   type        = string
   default     = "dev"
 }
 
 variable "location" {
-  description = "Default Azure region."
+  description = "既定のAzureリージョン。"
   type        = string
   default     = "japaneast"
 }
 
 variable "name_prefix" {
-  description = "Common resource name prefix."
+  description = "リソース名に使う共通プレフィックス。"
   type        = string
   default     = "ocr-demo"
 }
 
 variable "resource_group_name" {
-  description = "Resource group name."
+  description = "Resource Group名。"
   type        = string
   default     = "rg-ocr-demo-dev"
 }
 
 variable "tags" {
-  description = "Common tags."
+  description = "共通タグ。"
   type        = map(string)
   default = {
     app     = "ocr-demo"
@@ -39,109 +39,109 @@ variable "tags" {
 }
 
 variable "vnet_name" {
-  description = "Virtual network name."
+  description = "Virtual Network名。"
   type        = string
   default     = "vnet-ocr-demo-dev"
 }
 
 variable "vnet_address_space" {
-  description = "Virtual network address space."
+  description = "Virtual Networkのアドレス空間。"
   type        = list(string)
   default     = ["10.30.0.0/23"]
 }
 
 variable "dns_servers" {
-  description = "Custom DNS servers. Empty list uses Azure-provided DNS."
+  description = "カスタムDNSサーバー。空配列の場合はAzure提供DNSを使用します。"
   type        = list(string)
   default     = []
 }
 
 variable "enable_udr_to_hub_firewall" {
-  description = "Whether to create and associate a route table that sends subnet traffic to the hub firewall."
+  description = "Subnet通信をHub Firewallへ向けるRoute Tableを作成し、関連付けるかどうか。"
   type        = bool
   default     = false
 }
 
 variable "hub_firewall_private_ip" {
-  description = "Private IP address of the hub Azure Firewall used as the next hop for UDR. Set this value even if UDR is disabled in phase 1."
+  description = "UDRのNext Hopに使うHub Azure FirewallのPrivate IP。第1段階でUDRを無効にしていても、値が確定したら設定します。"
   type        = string
   default     = null
 }
 
 variable "snet_aca_infra_name" {
-  description = "Subnet name for Azure Container Apps environment."
+  description = "Azure Container Apps Environment用Subnet名。"
   type        = string
   default     = "snet-aca-infra"
 }
 
 variable "snet_aca_infra_prefixes" {
-  description = "Subnet CIDR for future Azure Container Apps workload profiles environment."
+  description = "将来のAzure Container Apps Workload profiles環境で使うSubnet CIDR。"
   type        = list(string)
   default     = ["10.30.0.0/24"]
 }
 
 variable "snet_private_endpoint_name" {
-  description = "Subnet name for private endpoints."
+  description = "Private Endpoint用Subnet名。"
   type        = string
   default     = "snet-private-endpoint"
 }
 
 variable "snet_private_endpoint_prefixes" {
-  description = "Subnet CIDR for private endpoints."
+  description = "Private Endpoint用Subnet CIDR。"
   type        = list(string)
   default     = ["10.30.1.0/25"]
 }
 
 variable "snet_admin_name" {
-  description = "Subnet name for optional admin VM."
+  description = "管理VM用Subnet名。"
   type        = string
   default     = "snet-admin"
 }
 
 variable "snet_admin_prefixes" {
-  description = "Subnet CIDR for optional admin VM."
+  description = "管理VM用Subnet CIDR。"
   type        = list(string)
   default     = ["10.30.1.128/28"]
 }
 
 variable "ai_name" {
-  description = "Azure AI Foundry account name."
+  description = "Azure AI Services / Foundryアカウント名。"
   type        = string
   default     = "ai-ocr-demo-dev"
 }
 
 variable "ai_location" {
-  description = "Azure AI Foundry account region."
+  description = "Azure AI Services / Foundryアカウントのリージョン。"
   type        = string
   default     = "japaneast"
 }
 
 variable "ai_sku_name" {
-  description = "Azure AI Services SKU."
+  description = "Azure AI ServicesのSKU。"
   type        = string
   default     = "S0"
 }
 
 variable "ai_project_name" {
-  description = "Azure AI Foundry project name."
+  description = "Azure AI Foundry Project名。"
   type        = string
   default     = "proj-default"
 }
 
 variable "ai_public_network_access_enabled" {
-  description = "Whether public network access is enabled for the AI account."
+  description = "enable_ai_private_only_accessがfalseの場合に、AIアカウントのPublic Network Accessを有効にするかどうか。"
   type        = bool
   default     = true
 }
 
 variable "enable_ai_private_only_access" {
-  description = "When true, AI public network access is disabled and network ACL default action is Deny."
+  description = "trueの場合、AIアカウントのPublic Network Accessを無効化し、Network ACLの既定アクションをDenyにします。"
   type        = bool
   default     = false
 }
 
 variable "ai_network_default_action" {
-  description = "Network ACL default action for the AI account."
+  description = "AIアカウントのNetwork ACL既定アクション。"
   type        = string
   default     = "Allow"
 
@@ -152,25 +152,25 @@ variable "ai_network_default_action" {
 }
 
 variable "log_analytics_workspace_name" {
-  description = "Log Analytics workspace name."
+  description = "Log Analytics Workspace名。"
   type        = string
   default     = "law-ocr-demo-dev"
 }
 
 variable "log_analytics_retention_days" {
-  description = "Log Analytics retention days."
+  description = "Log Analyticsの保持日数。"
   type        = number
   default     = 30
 }
 
 variable "create_storage_account" {
-  description = "Whether to create Blob Storage account in foundation phase."
+  description = "第1段階でBlob Storage用Storage Accountを作成するかどうか。"
   type        = bool
   default     = true
 }
 
 variable "storage_account_name" {
-  description = "Storage Account name. Must be globally unique, 3-24 characters, lowercase letters and numbers only."
+  description = "Storage Account名。Azure全体で一意、3-24文字、英小文字と数字のみです。"
   type        = string
   default     = "stocrocrdemodev001"
 
@@ -181,7 +181,7 @@ variable "storage_account_name" {
 }
 
 variable "storage_account_tier" {
-  description = "Storage Account tier."
+  description = "Storage AccountのTier。"
   type        = string
   default     = "Standard"
 
@@ -192,7 +192,7 @@ variable "storage_account_tier" {
 }
 
 variable "storage_account_replication_type" {
-  description = "Storage Account replication type."
+  description = "Storage Accountの冗長化方式。"
   type        = string
   default     = "LRS"
 
@@ -203,7 +203,7 @@ variable "storage_account_replication_type" {
 }
 
 variable "storage_account_access_tier" {
-  description = "Storage Account access tier."
+  description = "Storage AccountのAccess Tier。"
   type        = string
   default     = "Hot"
 
@@ -214,19 +214,19 @@ variable "storage_account_access_tier" {
 }
 
 variable "enable_storage_private_only_access" {
-  description = "When true, Storage public network access is disabled and network default action is Deny."
+  description = "trueの場合、Storage AccountのPublic Network Accessを無効化し、Network Ruleの既定アクションをDenyにします。"
   type        = bool
   default     = true
 }
 
 variable "storage_public_network_access_enabled" {
-  description = "Whether public network access is enabled for Storage Account when enable_storage_private_only_access is false."
+  description = "enable_storage_private_only_accessがfalseの場合に、Storage AccountのPublic Network Accessを有効にするかどうか。"
   type        = bool
   default     = true
 }
 
 variable "storage_network_default_action" {
-  description = "Storage network default action when enable_storage_private_only_access is false."
+  description = "enable_storage_private_only_accessがfalseの場合に使うStorage Network Ruleの既定アクション。"
   type        = string
   default     = "Allow"
 
@@ -237,37 +237,37 @@ variable "storage_network_default_action" {
 }
 
 variable "storage_network_bypass" {
-  description = "Storage network bypass settings."
+  description = "Storage AccountのNetwork Ruleで許可するバイパス設定。"
   type        = list(string)
   default     = ["AzureServices"]
 }
 
 variable "storage_shared_access_key_enabled" {
-  description = "Whether shared key access is enabled for the Storage Account. Prefer false for production."
+  description = "Storage AccountのShared Key認証を有効にするかどうか。本番ではfalseを推奨します。"
   type        = bool
   default     = false
 }
 
 variable "blob_container_name" {
-  description = "Blob container name for application documents. The container is not created by default in foundation phase."
+  description = "アプリ用Blob Container名。第1段階では既定で作成しません。"
   type        = string
   default     = "documents"
 }
 
 variable "create_blob_container" {
-  description = "Whether to create Blob container. Default false because private-only storage may block Terraform data-plane access from outside VNet."
+  description = "Blob Containerを作成するかどうか。Private Only StorageではTerraform実行元からデータプレーンアクセスできない可能性があるため、既定はfalseです。"
   type        = bool
   default     = false
 }
 
 variable "create_key_vault" {
-  description = "Whether to create Key Vault in foundation phase."
+  description = "第1段階でKey Vaultを作成するかどうか。"
   type        = bool
   default     = true
 }
 
 variable "key_vault_name" {
-  description = "Key Vault name. Must be globally unique."
+  description = "Key Vault名。Azure全体で一意にする必要があります。"
   type        = string
   default     = "kv-ocr-demo-dev-001"
 
@@ -278,7 +278,7 @@ variable "key_vault_name" {
 }
 
 variable "key_vault_sku_name" {
-  description = "Key Vault SKU."
+  description = "Key VaultのSKU。"
   type        = string
   default     = "standard"
 
@@ -289,19 +289,19 @@ variable "key_vault_sku_name" {
 }
 
 variable "enable_key_vault_private_only_access" {
-  description = "When true, Key Vault public network access is disabled and network ACL default action is Deny."
+  description = "trueの場合、Key VaultのPublic Network Accessを無効化し、Network ACLの既定アクションをDenyにします。"
   type        = bool
   default     = true
 }
 
 variable "key_vault_public_network_access_enabled" {
-  description = "Whether public network access is enabled for Key Vault when enable_key_vault_private_only_access is false."
+  description = "enable_key_vault_private_only_accessがfalseの場合に、Key VaultのPublic Network Accessを有効にするかどうか。"
   type        = bool
   default     = true
 }
 
 variable "key_vault_network_default_action" {
-  description = "Key Vault network ACL default action when enable_key_vault_private_only_access is false."
+  description = "enable_key_vault_private_only_accessがfalseの場合に使うKey Vault Network ACLの既定アクション。"
   type        = string
   default     = "Allow"
 
@@ -312,7 +312,7 @@ variable "key_vault_network_default_action" {
 }
 
 variable "key_vault_network_bypass" {
-  description = "Key Vault network ACL bypass setting."
+  description = "Key Vault Network ACLのバイパス設定。"
   type        = string
   default     = "AzureServices"
 
@@ -323,7 +323,7 @@ variable "key_vault_network_bypass" {
 }
 
 variable "key_vault_soft_delete_retention_days" {
-  description = "Soft delete retention days for Key Vault."
+  description = "Key VaultのSoft Delete保持日数。"
   type        = number
   default     = 7
 
@@ -334,50 +334,50 @@ variable "key_vault_soft_delete_retention_days" {
 }
 
 variable "key_vault_purge_protection_enabled" {
-  description = "Whether purge protection is enabled. Recommended true for production."
+  description = "Key VaultのPurge Protectionを有効にするかどうか。本番ではtrueを推奨します。"
   type        = bool
   default     = false
 }
 
 variable "create_admin_vm" {
-  description = "Whether to create an admin VM for private network validation."
+  description = "閉域疎通確認用の管理VMを作成するかどうか。"
   type        = bool
   default     = true
 }
 
 variable "admin_vm_name" {
-  description = "Optional admin VM name."
+  description = "管理VM名。"
   type        = string
   default     = "vm-ocr-demo-dev-admin"
 }
 
 variable "admin_vm_size" {
-  description = "Optional admin VM size."
+  description = "管理VMのサイズ。"
   type        = string
   default     = "Standard_B1s"
 }
 
 variable "admin_username" {
-  description = "Admin VM username."
+  description = "管理VMのユーザー名。"
   type        = string
   default     = "azureuser"
 }
 
 variable "admin_private_ip_address" {
-  description = "Static private IP address for the optional admin VM."
+  description = "管理VMに割り当てる固定Private IP。"
   type        = string
   default     = "10.30.1.132"
 }
 
 variable "admin_ssh_public_key" {
-  description = "SSH public key for the optional admin VM. Required when create_admin_vm is true."
+  description = "管理VM用SSH公開鍵。create_admin_vmがtrueの場合は必須です。"
   type        = string
   default     = null
   sensitive   = true
 }
 
 variable "hub_azure_bastion_subnet_prefix" {
-  description = "Hub-side AzureBastionSubnet CIDR allowed to SSH to the optional admin VM. Leave null in phase 1 to skip the SSH allow rule."
+  description = "管理VMへのSSHを許可するHub側AzureBastionSubnetのCIDR。第1段階でSSH許可ルールを作成しない場合はnullにします。"
   type        = string
   default     = null
 }
