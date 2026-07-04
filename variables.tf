@@ -47,7 +47,7 @@ variable "vnet_name" {
 variable "vnet_address_space" {
   description = "Virtual Networkのアドレス空間。"
   type        = list(string)
-  default     = ["10.30.0.0/23"]
+  default     = ["10.30.0.0/24"]
 }
 
 variable "dns_servers" {
@@ -77,7 +77,7 @@ variable "snet_aca_infra_name" {
 variable "snet_aca_infra_prefixes" {
   description = "将来のAzure Container Apps Workload profiles環境で使うSubnet CIDR。"
   type        = list(string)
-  default     = ["10.30.0.0/24"]
+  default     = ["10.30.0.0/25"]
 }
 
 variable "snet_private_endpoint_name" {
@@ -89,7 +89,7 @@ variable "snet_private_endpoint_name" {
 variable "snet_private_endpoint_prefixes" {
   description = "Private Endpoint用Subnet CIDR。"
   type        = list(string)
-  default     = ["10.30.1.0/25"]
+  default     = ["10.30.0.128/26"]
 }
 
 variable "snet_admin_name" {
@@ -101,7 +101,7 @@ variable "snet_admin_name" {
 variable "snet_admin_prefixes" {
   description = "管理VM用Subnet CIDR。"
   type        = list(string)
-  default     = ["10.30.1.128/28"]
+  default     = ["10.30.0.192/28"]
 }
 
 variable "ai_name" {
@@ -366,7 +366,7 @@ variable "admin_username" {
 variable "admin_private_ip_address" {
   description = "管理VMに割り当てる固定Private IP。"
   type        = string
-  default     = "10.30.1.132"
+  default     = "10.30.0.196"
 }
 
 variable "admin_ssh_public_key" {

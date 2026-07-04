@@ -4,402 +4,131 @@ resource "azurerm_resource_group" "this" {
   tags     = var.tags
 }
 
-locals {
-  ai_private_dns_zone_names = toset([
-    "privatelink.cognitiveservices.azure.com",
-    "privatelink.openai.azure.com",
-    "privatelink.services.ai.azure.com",
-  ])
+module "network" {
+  source = "./modules/network"
 
-  ai_public_network_access_enabled = var.enable_ai_private_only_access ? false : var.ai_public_network_access_enabled
-  ai_network_default_action        = var.enable_ai_private_only_access ? "Deny" : var.ai_network_default_action
-
-  storage_public_network_access_enabled = var.enable_storage_private_only_access ? false : var.storage_public_network_access_enabled
-  storage_network_default_action        = var.enable_storage_private_only_access ? "Deny" : var.storage_network_default_action
-
-  key_vault_public_network_access_enabled = var.enable_key_vault_private_only_access ? false : var.key_vault_public_network_access_enabled
-  key_vault_network_default_action        = var.enable_key_vault_private_only_access ? "Deny" : var.key_vault_network_default_action
+  resource_group_name            = azurerm_resource_group.this.name
+  location                       = var.location
+  tags                           = var.tags
+  vnet_name                      = var.vnet_name
+  vnet_address_space             = var.vnet_address_space
+  dns_servers                    = var.dns_servers
+  snet_aca_infra_name            = var.snet_aca_infra_name
+  snet_aca_infra_prefixes        = var.snet_aca_infra_prefixes
+  snet_private_endpoint_name     = var.snet_private_endpoint_name
+  snet_private_endpoint_prefixes = var.snet_private_endpoint_prefixes
+  create_admin_vm                = var.create_admin_vm
+  snet_admin_name                = var.snet_admin_name
+  snet_admin_prefixes            = var.snet_admin_prefixes
 }
 
-data "azurerm_client_config" "current" {}
+module "private_dns" {
+  source = "./modules/private_dns"
 
-resource "azurerm_virtual_network" "this" {
-  name                = var.vnet_name
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  address_space       = var.vnet_address_space
-  dns_servers         = var.dns_servers
-  tags                = var.tags
-}
-
-resource "azurerm_subnet" "aca_infra" {
-  name                 = var.snet_aca_infra_name
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.this.name
-  address_prefixes     = var.snet_aca_infra_prefixes
-
-  delegation {
-    name = "delegation-container-apps"
-
-    service_delegation {
-      name = "Microsoft.App/environments"
-      actions = [
-        "Microsoft.Network/virtualNetworks/subnets/join/action",
-      ]
-    }
-  }
-}
-
-resource "azurerm_subnet" "private_endpoint" {
-  name                 = var.snet_private_endpoint_name
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.this.name
-  address_prefixes     = var.snet_private_endpoint_prefixes
-
-  private_endpoint_network_policies = "Disabled"
-}
-
-resource "azurerm_subnet" "admin" {
-  count = var.create_admin_vm ? 1 : 0
-
-  name                 = var.snet_admin_name
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.this.name
-  address_prefixes     = var.snet_admin_prefixes
-}
-
-resource "azurerm_route_table" "spoke_to_hub_firewall" {
-  count = var.enable_udr_to_hub_firewall ? 1 : 0
-
-  name                = "rt-${var.name_prefix}-${var.env}-to-hub-fw"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-}
-
-resource "azurerm_route" "default_to_hub_firewall" {
-  count = var.enable_udr_to_hub_firewall ? 1 : 0
-
-  name                   = "default-to-hub-firewall"
   resource_group_name    = azurerm_resource_group.this.name
-  route_table_name       = azurerm_route_table.spoke_to_hub_firewall[0].name
-  address_prefix         = "0.0.0.0/0"
-  next_hop_type          = "VirtualAppliance"
-  next_hop_in_ip_address = var.hub_firewall_private_ip
-
-  lifecycle {
-    precondition {
-      condition     = var.hub_firewall_private_ip != null
-      error_message = "hub_firewall_private_ip is required when enable_udr_to_hub_firewall is true."
-    }
-  }
+  tags                   = var.tags
+  name_prefix            = var.name_prefix
+  env                    = var.env
+  vnet_id                = module.network.vnet_id
+  create_storage_account = var.create_storage_account
+  create_key_vault       = var.create_key_vault
 }
 
-resource "azurerm_subnet_route_table_association" "aca_infra" {
-  count = var.enable_udr_to_hub_firewall ? 1 : 0
+module "log_analytics" {
+  source = "./modules/log_analytics"
 
-  subnet_id      = azurerm_subnet.aca_infra.id
-  route_table_id = azurerm_route_table.spoke_to_hub_firewall[0].id
+  resource_group_name          = azurerm_resource_group.this.name
+  location                     = var.location
+  tags                         = var.tags
+  workspace_name               = var.log_analytics_workspace_name
+  workspace_retention_in_days  = var.log_analytics_retention_days
 }
 
-resource "azurerm_subnet_route_table_association" "admin" {
-  count = var.create_admin_vm && var.enable_udr_to_hub_firewall ? 1 : 0
+module "ai_foundry" {
+  source = "./modules/ai_foundry"
 
-  subnet_id      = azurerm_subnet.admin[0].id
-  route_table_id = azurerm_route_table.spoke_to_hub_firewall[0].id
+  resource_group_name              = azurerm_resource_group.this.name
+  location                         = var.ai_location
+  tags                             = var.tags
+  ai_account_name                  = var.ai_name
+  ai_sku_name                      = var.ai_sku_name
+  ai_project_name                  = var.ai_project_name
+  enable_ai_private_only_access    = var.enable_ai_private_only_access
+  ai_public_network_access_enabled = var.ai_public_network_access_enabled
+  ai_network_default_action        = var.ai_network_default_action
+  private_endpoint_subnet_id       = module.network.private_endpoint_subnet_id
+  ai_private_dns_zone_ids          = module.private_dns.ai_private_dns_zone_ids
 }
 
-resource "azurerm_log_analytics_workspace" "this" {
-  name                = var.log_analytics_workspace_name
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  sku                 = "PerGB2018"
-  retention_in_days   = var.log_analytics_retention_days
-  tags                = var.tags
+module "storage" {
+  source = "./modules/storage"
+
+  resource_group_name                         = azurerm_resource_group.this.name
+  location                                    = var.location
+  tags                                        = var.tags
+  create_storage_account                      = var.create_storage_account
+  storage_account_name                        = var.storage_account_name
+  storage_account_tier                        = var.storage_account_tier
+  storage_account_replication_type            = var.storage_account_replication_type
+  storage_account_access_tier                 = var.storage_account_access_tier
+  enable_storage_private_only_access          = var.enable_storage_private_only_access
+  storage_public_network_access_enabled       = var.storage_public_network_access_enabled
+  storage_network_default_action              = var.storage_network_default_action
+  storage_network_bypass                      = var.storage_network_bypass
+  storage_shared_access_key_enabled           = var.storage_shared_access_key_enabled
+  create_blob_container                       = var.create_blob_container
+  blob_container_name                         = var.blob_container_name
+  private_endpoint_subnet_id                  = module.network.private_endpoint_subnet_id
+  blob_private_dns_zone_id                    = module.private_dns.blob_private_dns_zone_id
 }
 
-resource "azurerm_cognitive_account" "ai" {
-  name                          = var.ai_name
-  location                      = var.ai_location
-  resource_group_name           = azurerm_resource_group.this.name
-  kind                          = "AIServices"
-  sku_name                      = var.ai_sku_name
-  custom_subdomain_name         = var.ai_name
-  project_management_enabled    = true
-  public_network_access_enabled = local.ai_public_network_access_enabled
-  tags                          = var.tags
+module "key_vault" {
+  source = "./modules/key_vault"
 
-  identity {
-    type = "SystemAssigned"
-  }
-
-  network_acls {
-    default_action = local.ai_network_default_action
-  }
+  resource_group_name                            = azurerm_resource_group.this.name
+  location                                       = var.location
+  tags                                           = var.tags
+  create_key_vault                               = var.create_key_vault
+  key_vault_name                                 = var.key_vault_name
+  key_vault_sku_name                             = var.key_vault_sku_name
+  enable_key_vault_private_only_access           = var.enable_key_vault_private_only_access
+  key_vault_public_network_access_enabled        = var.key_vault_public_network_access_enabled
+  key_vault_network_default_action               = var.key_vault_network_default_action
+  key_vault_network_bypass                       = var.key_vault_network_bypass
+  key_vault_soft_delete_retention_days           = var.key_vault_soft_delete_retention_days
+  key_vault_purge_protection_enabled             = var.key_vault_purge_protection_enabled
+  private_endpoint_subnet_id                     = module.network.private_endpoint_subnet_id
+  key_vault_private_dns_zone_id                  = module.private_dns.key_vault_private_dns_zone_id
 }
 
-resource "azurerm_cognitive_account_project" "default" {
-  name                 = var.ai_project_name
-  cognitive_account_id = azurerm_cognitive_account.ai.id
-  location             = azurerm_cognitive_account.ai.location
+module "admin_vm" {
+  source = "./modules/admin_vm"
 
-  identity {
-    type = "SystemAssigned"
-  }
+  resource_group_name              = azurerm_resource_group.this.name
+  location                         = var.location
+  tags                             = var.tags
+  create_admin_vm                  = var.create_admin_vm
+  snet_admin_name                  = var.snet_admin_name
+  admin_subnet_id                  = module.network.admin_subnet_id
+  admin_vm_name                    = var.admin_vm_name
+  admin_vm_size                    = var.admin_vm_size
+  admin_username                   = var.admin_username
+  admin_private_ip_address         = var.admin_private_ip_address
+  admin_ssh_public_key             = var.admin_ssh_public_key
+  hub_azure_bastion_subnet_prefix  = var.hub_azure_bastion_subnet_prefix
 }
 
-resource "azurerm_private_dns_zone" "ai" {
-  for_each = local.ai_private_dns_zone_names
+module "udr" {
+  source = "./modules/udr"
 
-  name                = each.value
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "ai" {
-  for_each = azurerm_private_dns_zone.ai
-
-  name                  = "${var.name_prefix}-${var.env}-${replace(replace(each.key, "privatelink.", ""), ".", "-")}-link"
-  resource_group_name   = azurerm_resource_group.this.name
-  private_dns_zone_name = each.value.name
-  virtual_network_id    = azurerm_virtual_network.this.id
-  registration_enabled  = false
-  tags                  = var.tags
-}
-
-resource "azurerm_private_endpoint" "ai" {
-  name                = "pe-${var.ai_name}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  subnet_id           = azurerm_subnet.private_endpoint.id
-  tags                = var.tags
-
-  private_service_connection {
-    name                           = "psc-${var.ai_name}"
-    private_connection_resource_id = azurerm_cognitive_account.ai.id
-    subresource_names              = ["account"]
-    is_manual_connection           = false
-  }
-
-  private_dns_zone_group {
-    name                 = "default"
-    private_dns_zone_ids = [for zone in azurerm_private_dns_zone.ai : zone.id]
-  }
-}
-
-resource "azurerm_storage_account" "blob" {
-  count = var.create_storage_account ? 1 : 0
-
-  name                            = var.storage_account_name
-  location                        = azurerm_resource_group.this.location
-  resource_group_name             = azurerm_resource_group.this.name
-  account_kind                    = "StorageV2"
-  account_tier                    = var.storage_account_tier
-  account_replication_type        = var.storage_account_replication_type
-  access_tier                     = var.storage_account_access_tier
-  min_tls_version                 = "TLS1_2"
-  public_network_access_enabled   = local.storage_public_network_access_enabled
-  allow_nested_items_to_be_public = false
-  shared_access_key_enabled       = var.storage_shared_access_key_enabled
-  tags                            = var.tags
-
-  network_rules {
-    default_action = local.storage_network_default_action
-    bypass         = var.storage_network_bypass
-  }
-}
-
-resource "azurerm_private_dns_zone" "blob" {
-  count = var.create_storage_account ? 1 : 0
-
-  name                = "privatelink.blob.core.windows.net"
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
-  count = var.create_storage_account ? 1 : 0
-
-  name                  = "${var.name_prefix}-${var.env}-blob-link"
-  resource_group_name   = azurerm_resource_group.this.name
-  private_dns_zone_name = azurerm_private_dns_zone.blob[0].name
-  virtual_network_id    = azurerm_virtual_network.this.id
-  registration_enabled  = false
-  tags                  = var.tags
-}
-
-resource "azurerm_private_endpoint" "blob" {
-  count = var.create_storage_account ? 1 : 0
-
-  name                = "pe-${var.storage_account_name}-blob"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  subnet_id           = azurerm_subnet.private_endpoint.id
-  tags                = var.tags
-
-  private_service_connection {
-    name                           = "psc-${var.storage_account_name}-blob"
-    private_connection_resource_id = azurerm_storage_account.blob[0].id
-    subresource_names              = ["blob"]
-    is_manual_connection           = false
-  }
-
-  private_dns_zone_group {
-    name                 = "default"
-    private_dns_zone_ids = [azurerm_private_dns_zone.blob[0].id]
-  }
-}
-
-resource "azurerm_storage_container" "documents" {
-  count = var.create_storage_account && var.create_blob_container ? 1 : 0
-
-  name                  = var.blob_container_name
-  storage_account_id    = azurerm_storage_account.blob[0].id
-  container_access_type = "private"
-}
-
-resource "azurerm_key_vault" "this" {
-  count = var.create_key_vault ? 1 : 0
-
-  name                          = var.key_vault_name
-  location                      = azurerm_resource_group.this.location
-  resource_group_name           = azurerm_resource_group.this.name
-  tenant_id                     = data.azurerm_client_config.current.tenant_id
-  sku_name                      = var.key_vault_sku_name
-  rbac_authorization_enabled    = true
-  public_network_access_enabled = local.key_vault_public_network_access_enabled
-  soft_delete_retention_days    = var.key_vault_soft_delete_retention_days
-  purge_protection_enabled      = var.key_vault_purge_protection_enabled
-  tags                          = var.tags
-
-  network_acls {
-    bypass         = var.key_vault_network_bypass
-    default_action = local.key_vault_network_default_action
-  }
-}
-
-resource "azurerm_private_dns_zone" "key_vault" {
-  count = var.create_key_vault ? 1 : 0
-
-  name                = "privatelink.vaultcore.azure.net"
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "key_vault" {
-  count = var.create_key_vault ? 1 : 0
-
-  name                  = "${var.name_prefix}-${var.env}-keyvault-link"
-  resource_group_name   = azurerm_resource_group.this.name
-  private_dns_zone_name = azurerm_private_dns_zone.key_vault[0].name
-  virtual_network_id    = azurerm_virtual_network.this.id
-  registration_enabled  = false
-  tags                  = var.tags
-}
-
-resource "azurerm_private_endpoint" "key_vault" {
-  count = var.create_key_vault ? 1 : 0
-
-  name                = "pe-${var.key_vault_name}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  subnet_id           = azurerm_subnet.private_endpoint.id
-  tags                = var.tags
-
-  private_service_connection {
-    name                           = "psc-${var.key_vault_name}"
-    private_connection_resource_id = azurerm_key_vault.this[0].id
-    subresource_names              = ["vault"]
-    is_manual_connection           = false
-  }
-
-  private_dns_zone_group {
-    name                 = "default"
-    private_dns_zone_ids = [azurerm_private_dns_zone.key_vault[0].id]
-  }
-}
-
-resource "azurerm_network_security_group" "admin" {
-  count = var.create_admin_vm ? 1 : 0
-
-  name                = "nsg-${var.snet_admin_name}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-}
-
-resource "azurerm_network_security_rule" "admin_ssh_from_hub_bastion" {
-  count = var.create_admin_vm && var.hub_azure_bastion_subnet_prefix != null ? 1 : 0
-
-  name                        = "Allow-SSH-From-Hub-Bastion"
-  priority                    = 100
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "22"
-  source_address_prefix       = var.hub_azure_bastion_subnet_prefix
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.this.name
-  network_security_group_name = azurerm_network_security_group.admin[0].name
-}
-
-resource "azurerm_subnet_network_security_group_association" "admin" {
-  count = var.create_admin_vm ? 1 : 0
-
-  subnet_id                 = azurerm_subnet.admin[0].id
-  network_security_group_id = azurerm_network_security_group.admin[0].id
-}
-
-resource "azurerm_network_interface" "admin" {
-  count = var.create_admin_vm ? 1 : 0
-
-  name                = "nic-${var.admin_vm_name}"
-  location            = azurerm_resource_group.this.location
-  resource_group_name = azurerm_resource_group.this.name
-  tags                = var.tags
-
-  ip_configuration {
-    name                          = "ipconfig1"
-    subnet_id                     = azurerm_subnet.admin[0].id
-    private_ip_address_allocation = "Static"
-    private_ip_address            = var.admin_private_ip_address
-  }
-}
-
-resource "azurerm_linux_virtual_machine" "admin" {
-  count = var.create_admin_vm ? 1 : 0
-
-  name                            = var.admin_vm_name
-  location                        = azurerm_resource_group.this.location
-  resource_group_name             = azurerm_resource_group.this.name
-  size                            = var.admin_vm_size
-  admin_username                  = var.admin_username
-  disable_password_authentication = true
-  network_interface_ids           = [azurerm_network_interface.admin[0].id]
-  tags                            = var.tags
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.admin_ssh_public_key
-  }
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
-  }
-
-  lifecycle {
-    precondition {
-      condition     = !var.create_admin_vm || var.admin_ssh_public_key != null
-      error_message = "admin_ssh_public_key is required when create_admin_vm is true."
-    }
-  }
+  resource_group_name          = azurerm_resource_group.this.name
+  location                     = var.location
+  tags                         = var.tags
+  name_prefix                  = var.name_prefix
+  env                          = var.env
+  enable_udr_to_hub_firewall   = var.enable_udr_to_hub_firewall
+  hub_firewall_private_ip      = var.hub_firewall_private_ip
+  aca_infra_subnet_id          = module.network.aca_infra_subnet_id
+  create_admin_vm              = var.create_admin_vm
+  admin_subnet_id              = module.network.admin_subnet_id
 }

@@ -14,7 +14,7 @@ tags = {
 }
 
 vnet_name          = "vnet-ocr-demo-dev"
-vnet_address_space = ["10.30.0.0/23"]
+vnet_address_space = ["10.30.0.0/24"]
 dns_servers        = []
 
 # Hub Azure FirewallのPrivate IPが確定したら設定します。
@@ -23,11 +23,11 @@ hub_firewall_private_ip    = "<Hub Firewall Private IP>"
 enable_udr_to_hub_firewall = false
 
 snet_aca_infra_name            = "snet-aca-infra"
-snet_aca_infra_prefixes        = ["10.30.0.0/24"]
+snet_aca_infra_prefixes        = ["10.30.0.0/25"]
 snet_private_endpoint_name     = "snet-private-endpoint"
-snet_private_endpoint_prefixes = ["10.30.1.0/25"]
+snet_private_endpoint_prefixes = ["10.30.0.128/26"]
 snet_admin_name                = "snet-admin"
-snet_admin_prefixes            = ["10.30.1.128/28"]
+snet_admin_prefixes            = ["10.30.0.192/28"]
 
 ai_name         = "ai-ocr-demo-dev"
 ai_location     = "japaneast"
@@ -89,10 +89,10 @@ create_admin_vm          = true
 admin_vm_name            = "vm-ocr-demo-dev-admin"
 admin_vm_size            = "Standard_B1s"
 admin_username           = "azureuser"
-admin_private_ip_address = "10.30.1.132"
+admin_private_ip_address = "10.30.0.196"
 
 # create_admin_vmがtrueの場合は必須です。秘密鍵ではなくSSH公開鍵だけを設定します。
-admin_ssh_public_key = null
+admin_ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... ocr-demo-admin"
 
 # 第1段階ではHub未接続の可能性があるためnullで構いません。
 # nullの場合、管理VM用NSGは作成しますがSSH許可ルールは作成しません。
