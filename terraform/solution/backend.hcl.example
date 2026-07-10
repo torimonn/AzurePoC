@@ -1,0 +1,5 @@
+resource_group_name  = "rg-ocr-demo-tfstate"
+storage_account_name = "<tfstate-storage-account-name>"
+container_name       = "tfstate"
+key                  = "ocr-demo/solution/terraform.tfstate"
+use_azuread_auth     = true
