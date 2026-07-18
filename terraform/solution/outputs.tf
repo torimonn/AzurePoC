@@ -102,6 +102,11 @@ output "blob_private_endpoint_id" {
   value       = try(module.storage_account[0].private_endpoints["blob"].id, null)
 }
 
+output "state_storage_private_endpoint_id" {
+  description = "Terraform state用Storage AccountのBlob Private Endpoint ID。無効時はnull。"
+  value       = try(module.state_storage_private_endpoint[0].resource_id, null)
+}
+
 output "key_vault_id" {
   description = "Key VaultのResource ID。"
   value       = try(module.key_vault[0].resource_id, null)
@@ -130,6 +135,11 @@ output "key_vault_private_endpoint_id" {
 output "admin_vm_private_ip" {
   description = "管理VMのPrivate IP。create_admin_vmがfalseの場合はnull。"
   value       = try(module.admin_vm[0].virtual_machine_azurerm.private_ip_address, null)
+}
+
+output "admin_vm_entra_id_login_enabled" {
+  description = "管理VMでMicrosoft Entra ID SSH認証拡張を有効化しているかどうか。"
+  value       = var.create_admin_vm && var.enable_admin_vm_entra_id_login
 }
 
 output "udr_to_hub_firewall_enabled" {

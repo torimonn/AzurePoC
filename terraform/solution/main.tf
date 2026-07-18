@@ -9,6 +9,17 @@ module "resource_group" {
   location         = var.location
   tags             = var.tags
   enable_telemetry = false
+
+  # Microsoft Learnの推奨に従い、VMログインRoleは専用Resource Groupへ付与します。
+  # principal_idがnullの場合、Role Assignmentは共通基盤側などで別途付与します。
+  role_assignments = var.create_admin_vm && var.enable_admin_vm_entra_id_login && var.admin_vm_login_principal_id != null ? {
+    admin_vm_entra_login = {
+      role_definition_id_or_name = "Virtual Machine Administrator Login"
+      principal_id               = var.admin_vm_login_principal_id
+      principal_type             = var.admin_vm_login_principal_type
+      description                = "OCR-Demo管理VMへのMicrosoft Entra ID管理者ログイン"
+    }
+  } : {}
 }
 
 # 2. Log Analytics Workspace
@@ -157,7 +168,30 @@ module "storage_account" {
   }
 }
 
-# 8. Key Vault。Secret、Key、Certificateは第1段階では作成しません。
+# 8. State Storage用Private Endpoint。管理VMからbackendへ到達できる段階でだけ有効化します。
+module "state_storage_private_endpoint" {
+  count = var.enable_state_storage_private_endpoint ? 1 : 0
+
+  source  = "Azure/avm-res-network-privateendpoint/azurerm"
+  version = "0.2.0"
+
+  name                            = "pe-${var.state_storage_account_name}-blob"
+  network_interface_name          = "nic-pe-${var.state_storage_account_name}-blob"
+  location                        = var.location
+  resource_group_name             = module.resource_group.name
+  subnet_resource_id              = module.virtual_network.subnets["private_endpoint"].resource_id
+  private_connection_resource_id  = var.state_storage_account_id
+  private_service_connection_name = "psc-${var.state_storage_account_name}-blob"
+  subresource_names               = ["blob"]
+  private_dns_zone_group_name     = "default"
+  private_dns_zone_resource_ids = [
+    module.private_dns_zones["blob"].resource_id,
+  ]
+  enable_telemetry = false
+  tags             = var.tags
+}
+
+# 9. Key Vault。Secret、Key、Certificateは第1段階では作成しません。
 module "key_vault" {
   count = var.create_key_vault ? 1 : 0
 
@@ -197,7 +231,7 @@ module "key_vault" {
   }
 }
 
-# 9. Azure AI Services。Project ManagementとSystem Assigned IdentityがProject作成の前提です。
+# 10. Azure AI Services。Project ManagementとSystem Assigned IdentityがProject作成の前提です。
 module "ai_services" {
   source  = "Azure/avm-res-cognitiveservices-account/azurerm"
   version = "0.11.1"
@@ -251,7 +285,7 @@ resource "azurerm_cognitive_account_project" "this" {
   }
 }
 
-# 10. Public IPなし、固定Private IP、公開鍵認証の管理VM。
+# 11. Public IPなし、固定Private IP、公開鍵認証とMicrosoft Entra ID認証の管理VM。
 module "admin_vm" {
   count = var.create_admin_vm ? 1 : 0
 
@@ -279,6 +313,17 @@ module "admin_vm" {
   managed_identities = {
     system_assigned = true
   }
+
+  extensions = var.enable_admin_vm_entra_id_login ? {
+    entra_id_ssh_login = {
+      name                       = "AADSSHLoginForLinux"
+      publisher                  = "Microsoft.Azure.ActiveDirectory"
+      type                       = "AADSSHLoginForLinux"
+      type_handler_version       = "1.0"
+      auto_upgrade_minor_version = true
+      automatic_upgrade_enabled  = true
+    }
+  } : {}
 
   network_interfaces = {
     primary = {

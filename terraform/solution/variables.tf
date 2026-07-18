@@ -270,6 +270,34 @@ variable "create_blob_container" {
   }
 }
 
+variable "enable_state_storage_private_endpoint" {
+  description = "管理VM移行後にTerraform state用Storage AccountのBlob Private Endpointを作成するかどうか。初期Cloud Shell構築ではfalseにします。"
+  type        = bool
+  default     = false
+}
+
+variable "state_storage_account_id" {
+  description = "bootstrapが作成したTerraform state用Storage AccountのResource ID。State Storage Private Endpoint有効時に必須です。"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = !var.enable_state_storage_private_endpoint || can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Storage/storageAccounts/[^/]+$", var.state_storage_account_id))
+    error_message = "enable_state_storage_private_endpointがtrueの場合、有効なstate_storage_account_idが必要です。"
+  }
+}
+
+variable "state_storage_account_name" {
+  description = "bootstrapが作成したTerraform state用Storage Account名。State Storage Private Endpoint有効時に必須です。"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = !var.enable_state_storage_private_endpoint || can(regex("^[a-z0-9]{3,24}$", var.state_storage_account_name))
+    error_message = "enable_state_storage_private_endpointがtrueの場合、3～24文字の英小文字と数字で構成されたstate_storage_account_nameが必要です。"
+  }
+}
+
 variable "create_key_vault" {
   description = "第1段階でKey Vaultを作成するかどうか。"
   type        = bool
@@ -353,6 +381,34 @@ variable "create_admin_vm" {
   description = "閉域疎通確認用の管理VMを作成するかどうか。"
   type        = bool
   default     = true
+}
+
+variable "enable_admin_vm_entra_id_login" {
+  description = "管理VMへAADSSHLoginForLinux拡張を導入し、Microsoft Entra ID SSH認証を有効にするかどうか。"
+  type        = bool
+  default     = true
+}
+
+variable "admin_vm_login_principal_id" {
+  description = "Virtual Machine Administrator LoginをResource Groupへ付与するMicrosoft EntraユーザーまたはグループのObject ID。nullの場合はRole Assignmentを作成しません。"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.admin_vm_login_principal_id == null || can(regex("^[0-9a-fA-F-]{36}$", var.admin_vm_login_principal_id))
+    error_message = "admin_vm_login_principal_idは有効なMicrosoft Entra Object IDまたはnullにしてください。"
+  }
+}
+
+variable "admin_vm_login_principal_type" {
+  description = "管理VMログインRoleを付与するプリンシパル種別。User、Group、ServicePrincipal、またはnullを指定します。"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.admin_vm_login_principal_type == null || contains(["User", "Group", "ServicePrincipal"], var.admin_vm_login_principal_type)
+    error_message = "admin_vm_login_principal_typeはUser、Group、ServicePrincipal、またはnullにしてください。"
+  }
 }
 
 variable "admin_vm_name" {

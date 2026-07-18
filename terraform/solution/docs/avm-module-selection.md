@@ -1,6 +1,6 @@
 # AVM選定記録
 
-確認日: 2026-07-10
+確認日: 2026-07-18
 
 Terraform Registryの公開済みmodule、各固定版のREADME、Inputs、Outputs、Examples、`terraform.tf` を確認して選定しました。
 
@@ -13,9 +13,10 @@ Terraform Registryの公開済みmodule、各固定版のREADME、Inputs、Outpu
 | VNet・Subnet | `Azure/avm-res-network-virtualnetwork/azurerm` | 0.19.0 | azapi `~>2.4` | Subnet delegation、NSG、Route Table、PE policyを1つの入力で管理。 |
 | Private DNS Zone | `Azure/avm-res-network-privatednszone/azurerm` | 0.5.0 | azapi `~>2.4`、time `~>0.13` | 5Zoneを `for_each` で作成し、Spoke VNet Linkも同じmoduleで管理。 |
 | Storage Account | `Azure/avm-res-storage-storageaccount/azurerm` | 0.7.3 | azapi `~>2.8` | Blob PEとDNS Zone Groupに対応。子resourceはAzAPIのARM操作で管理。 |
+| Private Endpoint | `Azure/avm-res-network-privateendpoint/azurerm` | 0.2.0 | azurerm `>=3.71,<5` | 管理VM移行後のState Storage用PEだけに使用。初期段階は `count = 0`。 |
 | Key Vault | `Azure/avm-res-keyvault-vault/azurerm` | 0.10.2 | azurerm `>=3.117,<5` | RBAC、Network ACL、vault PEに対応。Secret入力は使用しない。 |
 | Azure AI Services | `Azure/avm-res-cognitiveservices-account/azurerm` | 0.11.1 | azurerm `>=4.17,<5`、azapi `~>2.5` | `AIServices`、Project Management、account PE、AI系3Zoneに対応。v0.11以降はPE実装変更に注意。 |
-| 管理VM | `Azure/avm-res-compute-virtualmachine/azurerm` | 0.21.0 | azurerm `>=3.116,<5`、tls `~>4.0` | NIC内部作成、固定Private IP、Public IPなし、SSH公開鍵に対応。v0.19で大きな破壊的変更あり。 |
+| 管理VM | `Azure/avm-res-compute-virtualmachine/azurerm` | 0.21.0 | azurerm `>=3.116,<5`、tls `~>4.0` | NIC内部作成、固定Private IP、Public IPなし、SSH公開鍵、AADSSHLoginForLinux拡張に対応。v0.19で大きな破壊的変更あり。 |
 
 root moduleでは、全moduleの共通制約を満たすTerraform `>=1.10,<2.0`、AzureRM `~>4.77.0`、AzAPI `~>2.8` を指定し、lock fileで実バージョンとchecksumを固定します。補助ProviderはAVMが実際に要求する `modtm`、`random`、`time`、`tls` だけを定義しています。
 
@@ -47,3 +48,5 @@ AI Services側では、Project作成の前提となる次の設定をCognitive S
 - AVM index: <https://azure.github.io/Azure-Verified-Modules/indexes/terraform/tf-resource-modules/>
 - Terraform Registry: <https://registry.terraform.io/namespaces/Azure>
 - AzureRM Cognitive Account Project: <https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/cognitive_account_project>
+- Microsoft Entra ID SSH for Linux VM: <https://learn.microsoft.com/entra/identity/devices/howto-vm-sign-in-azure-ad-linux>
+- Azure default outbound access: <https://learn.microsoft.com/azure/virtual-network/ip-services/default-outbound-access>

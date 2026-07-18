@@ -60,6 +60,12 @@ storage_shared_access_key_enabled = true
 blob_container_name   = "documents"
 create_blob_container = false
 
+# 管理VMからbackendへ到達できることを確認するまではfalseにします。
+# trueへ変更するときはbootstrap outputのResource IDとStorage Account名を設定します。
+enable_state_storage_private_endpoint = false
+state_storage_account_id              = null
+state_storage_account_name            = null
+
 create_key_vault     = true
 key_vault_name       = "kv-ocr-demo-dev-001"
 key_vault_sku_name   = "standard"
@@ -73,6 +79,7 @@ key_vault_soft_delete_retention_days    = 7
 key_vault_purge_protection_enabled      = false
 
 create_admin_vm          = true
+enable_admin_vm_entra_id_login = true
 admin_vm_name            = "vm-ocr-demo-dev-admin"
 admin_vm_size            = "Standard_B1s"
 admin_username           = "azureuser"
@@ -80,6 +87,11 @@ admin_private_ip_address = "10.30.0.196"
 
 # 内部break-glass用のSSH公開鍵です。秘密鍵は保存しないでください。
 admin_ssh_public_key = "<internal-break-glass-ssh-public-key>"
+
+# Entra IDログインRoleをTerraformで付与する場合、ユーザーまたはグループのObject IDを設定します。
+# nullの場合、AADSSHLoginForLinux拡張だけを導入し、Role Assignmentは共通基盤側などで別途実施します。
+admin_vm_login_principal_id   = null
+admin_vm_login_principal_type = null
 
 # nullの場合、管理VM用NSGは作成しますがSSH許可ルールは作成しません。
 hub_azure_bastion_subnet_prefix = null
