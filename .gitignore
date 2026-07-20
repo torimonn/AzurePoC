@@ -4,8 +4,13 @@
 .terraform.tfstate.lock.info
 *.tfplan
 terraform.tfvars
+backend.hcl
+terraform/bootstrap/backend.tf
+plan.txt
 crash.log
 crash.*.log
+dist/
+.tools/
 override.tf
 override.tf.json
 *_override.tf

@@ -1,0 +1,97 @@
+subscription_id = null
+
+env         = "dev"
+location    = "japaneast"
+name_prefix = "ocr-demo"
+
+resource_group_name = "rg-ocr-demo-dev"
+
+tags = {
+  app     = "ocr-demo"
+  env     = "dev"
+  owner   = "toshiki"
+  purpose = "hands-on"
+}
+
+vnet_name          = "vnet-ocr-demo-dev"
+vnet_address_space = ["10.30.0.0/24"]
+dns_servers        = []
+
+snet_aca_infra_name            = "snet-aca-infra"
+snet_aca_infra_prefixes        = ["10.30.0.0/25"]
+snet_private_endpoint_name     = "snet-private-endpoint"
+snet_private_endpoint_prefixes = ["10.30.0.128/26"]
+snet_admin_name                = "snet-admin"
+snet_admin_prefixes            = ["10.30.0.192/28"]
+
+# 第1段階ではHub未接続の可能性があるためUDRを無効にします。
+hub_firewall_private_ip    = null
+enable_udr_to_hub_firewall = false
+
+log_analytics_workspace_name = "law-ocr-demo-dev"
+log_analytics_retention_days  = 30
+
+ai_name         = "ai-ocr-demo-dev"
+ai_location     = "japaneast"
+ai_sku_name     = "S0"
+ai_project_name = "proj-default"
+
+enable_ai_private_only_access = true
+
+ai_public_network_access_enabled = true
+ai_network_default_action        = "Allow"
+
+create_storage_account           = true
+storage_account_name             = "stocrocrdemodev001"
+storage_account_tier             = "Standard"
+storage_account_replication_type = "LRS"
+storage_account_access_tier      = "Hot"
+
+enable_storage_private_only_access = true
+
+storage_public_network_access_enabled = true
+storage_network_default_action        = "Allow"
+storage_network_bypass                = ["AzureServices"]
+
+# Cloud Shellからの第1段階PoC applyを考慮した一時設定です。
+storage_shared_access_key_enabled = true
+
+# 第1段階ではアプリ用Blob Containerを作成しません。
+blob_container_name   = "documents"
+create_blob_container = false
+
+# 管理VMからbackendへ到達できることを確認するまではfalseにします。
+# trueへ変更するときはbootstrap outputのResource IDとStorage Account名を設定します。
+enable_state_storage_private_endpoint = false
+state_storage_account_id              = null
+state_storage_account_name            = null
+
+create_key_vault     = true
+key_vault_name       = "kv-ocr-demo-dev-001"
+key_vault_sku_name   = "standard"
+
+enable_key_vault_private_only_access = true
+
+key_vault_public_network_access_enabled = true
+key_vault_network_default_action        = "Allow"
+key_vault_network_bypass                = "AzureServices"
+key_vault_soft_delete_retention_days    = 7
+key_vault_purge_protection_enabled      = false
+
+create_admin_vm          = true
+enable_admin_vm_entra_id_login = true
+admin_vm_name            = "vm-ocr-demo-dev-admin"
+admin_vm_size            = "Standard_B1s"
+admin_username           = "azureuser"
+admin_private_ip_address = "10.30.0.196"
+
+# 内部break-glass用のSSH公開鍵です。秘密鍵は保存しないでください。
+admin_ssh_public_key = "<internal-break-glass-ssh-public-key>"
+
+# Entra IDログインRoleをTerraformで付与する場合、ユーザーまたはグループのObject IDを設定します。
+# nullの場合、AADSSHLoginForLinux拡張だけを導入し、Role Assignmentは共通基盤側などで別途実施します。
+admin_vm_login_principal_id   = null
+admin_vm_login_principal_type = null
+
+# nullの場合、管理VM用NSGは作成しますがSSH許可ルールは作成しません。
+hub_azure_bastion_subnet_prefix = null

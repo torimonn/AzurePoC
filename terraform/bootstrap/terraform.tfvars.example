@@ -1,0 +1,22 @@
+subscription_id = null
+location        = "japaneast"
+
+state_resource_group_name    = "rg-ocr-demo-tfstate"
+state_storage_account_name   = "stocrtfstate001"
+state_storage_account_sku_name = "Standard_LRS"
+state_container_name         = "tfstate"
+
+# Cloud Shellからの初期構築を優先する設定です。閉域経路の準備後にDeny化を検討してください。
+state_public_network_access_enabled = true
+state_network_default_action        = "Allow"
+state_network_bypass                = ["AzureServices"]
+
+grant_current_principal_blob_data_contributor = true
+state_admin_principal_id                       = "<microsoft-entra-object-id>"
+
+tags = {
+  app     = "ocr-demo"
+  env     = "shared"
+  owner   = "toshiki"
+  purpose = "terraform-state"
+}
