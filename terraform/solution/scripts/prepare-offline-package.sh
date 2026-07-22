@@ -45,7 +45,7 @@ provider_installation {
 EOF
 
 cat > "${PACKAGE_DIR}/MANIFEST.md" <<'EOF'
-# OCR-Demo閉域配布パッケージ
+# AI業務アシスト閉域配布パッケージ
 
 このパッケージには、固定版AVMの取得済みmodule treeとlinux_amd64用Provider mirrorを含みます。
 

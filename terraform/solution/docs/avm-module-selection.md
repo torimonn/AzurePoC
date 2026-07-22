@@ -1,6 +1,6 @@
 # AVM選定記録
 
-確認日: 2026-07-18
+確認日: 2026-07-21
 
 Terraform Registryの公開済みmodule、各固定版のREADME、Inputs、Outputs、Examples、`terraform.tf` を確認して選定しました。
 
@@ -31,7 +31,7 @@ AI Services側では、Project作成の前提となる次の設定をCognitive S
 - System Assigned Managed Identity
 - `custom_subdomain_name`
 
-## 第3段階で検討するAVM
+## フェーズ7で検討するAVM
 
 導入時点で最新版、破壊的変更、Provider制約を再確認します。
 
@@ -50,3 +50,4 @@ AI Services側では、Project作成の前提となる次の設定をCognitive S
 - AzureRM Cognitive Account Project: <https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/cognitive_account_project>
 - Microsoft Entra ID SSH for Linux VM: <https://learn.microsoft.com/entra/identity/devices/howto-vm-sign-in-azure-ad-linux>
 - Azure default outbound access: <https://learn.microsoft.com/azure/virtual-network/ip-services/default-outbound-access>
+- Azure Container Apps custom VNet: <https://learn.microsoft.com/azure/container-apps/custom-virtual-networks>

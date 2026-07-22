@@ -63,7 +63,7 @@ module "admin_nsg" {
   }
 }
 
-# 4. Hub Firewall向けRoute Table。第1段階ではcount=0です。
+# 4. Hub Firewall向けRoute Table。初期基盤ではcount=0です。
 module "route_table" {
   count = var.enable_udr_to_hub_firewall ? 1 : 0
 
@@ -125,7 +125,7 @@ module "private_dns_zones" {
   }
 }
 
-# 7. Blob用途のStorage Account。Blob Containerは第1段階では作成しません。
+# 7. Blob用途のStorage Account。Blob Containerは初期基盤では作成しません。
 module "storage_account" {
   count = var.create_storage_account ? 1 : 0
 
@@ -140,14 +140,15 @@ module "storage_account" {
   access_tier                     = var.storage_account_access_tier
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
-  public_network_access_enabled   = local.storage_public_network_access_enabled
+  # アプリ用PaaSは閉域基盤の固定要件としてPrivate接続だけを許可します。
+  public_network_access_enabled = false
 
-  # Shared Key access is temporarily enabled for the initial PoC and Cloud Shell workflow.
-  # Production operation should prefer Managed Identity and RBAC.
-  shared_access_key_enabled = var.storage_shared_access_key_enabled
+  # Storage AVMはAzAPIとEntra IDで管理するため、Shared Keyは使用しません。
+  default_to_oauth_authentication = true
+  shared_access_key_enabled       = false
 
   network_rules = {
-    default_action = local.storage_network_default_action
+    default_action = "Deny"
     bypass         = var.storage_network_bypass
   }
 
@@ -191,7 +192,7 @@ module "state_storage_private_endpoint" {
   tags             = var.tags
 }
 
-# 9. Key Vault。Secret、Key、Certificateは第1段階では作成しません。
+# 9. Key Vault。Secret、Key、Certificateは初期基盤では作成しません。
 module "key_vault" {
   count = var.create_key_vault ? 1 : 0
 
@@ -204,7 +205,7 @@ module "key_vault" {
   tenant_id                      = data.azurerm_client_config.current.tenant_id
   sku_name                       = var.key_vault_sku_name
   legacy_access_policies_enabled = false
-  public_network_access_enabled  = local.key_vault_public_network_access_enabled
+  public_network_access_enabled  = false
   soft_delete_retention_days     = var.key_vault_soft_delete_retention_days
   purge_protection_enabled       = var.key_vault_purge_protection_enabled
   enable_telemetry               = false
@@ -212,7 +213,7 @@ module "key_vault" {
 
   network_acls = {
     bypass         = var.key_vault_network_bypass
-    default_action = local.key_vault_network_default_action
+    default_action = "Deny"
   }
 
   keys          = {}
@@ -244,7 +245,7 @@ module "ai_services" {
   custom_subdomain_name         = var.ai_name
   allow_project_management      = true
   default_project               = var.ai_project_name
-  public_network_access_enabled = local.ai_public_network_access_enabled
+  public_network_access_enabled = false
   enable_telemetry              = false
   tags                          = var.tags
 
@@ -253,7 +254,7 @@ module "ai_services" {
   }
 
   network_acls = {
-    default_action = local.ai_network_default_action
+    default_action = "Deny"
     bypass         = "AzureServices"
   }
 
