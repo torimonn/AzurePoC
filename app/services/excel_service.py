@@ -1,4 +1,4 @@
-"""事業性評価データを確認用Excelブックへ書き込む。"""
+"""事業性評価データを単一シートのExcelブックへ書き込む。"""
 
 from __future__ import annotations
 
@@ -17,10 +17,11 @@ YELLOW = "FFD43B"
 LIGHT_YELLOW = "FFF8D6"
 WHITE = "FFFFFF"
 GRID = "B8C8D6"
+MAX_COLUMNS = 7
 
 
-def _title(ws: Worksheet, text: str, last_column: int) -> None:
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=last_column)
+def _title(ws: Worksheet, text: str) -> None:
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=MAX_COLUMNS)
     cell = ws.cell(1, 1, text)
     cell.font = Font(color=WHITE, bold=True, size=16)
     cell.fill = PatternFill("solid", fgColor=NAVY)
@@ -28,14 +29,29 @@ def _title(ws: Worksheet, text: str, last_column: int) -> None:
     ws.row_dimensions[1].height = 32
 
 
+def _section_header(ws: Worksheet, row_number: int, text: str) -> None:
+    ws.merge_cells(
+        start_row=row_number,
+        start_column=1,
+        end_row=row_number,
+        end_column=MAX_COLUMNS,
+    )
+    cell = ws.cell(row_number, 1, text)
+    cell.font = Font(color=WHITE, bold=True, size=12)
+    cell.fill = PatternFill("solid", fgColor=NAVY)
+    cell.alignment = Alignment(vertical="center")
+    ws.row_dimensions[row_number].height = 24
+
+
 def _write_table(
     ws: Worksheet,
+    header_row: int,
     headers: list[str],
     rows: list[list[Any]],
-    widths: list[int],
     *,
-    header_row: int = 3,
-) -> None:
+    status_column: int | None = None,
+) -> int:
+    """表を書き込み、次の空き行番号を返す。"""
     thin = Side(style="thin", color=GRID)
     for column, value in enumerate(headers, 1):
         cell = ws.cell(header_row, column, value)
@@ -50,19 +66,12 @@ def _write_table(
             cell.fill = PatternFill("solid", fgColor=LIGHT_BLUE if row_number % 2 == 0 else WHITE)
             cell.border = Border(left=thin, right=thin, top=thin, bottom=thin)
             cell.alignment = Alignment(vertical="top", wrap_text=True)
-        status_cell = ws.cell(row_number, len(headers))
-        status_cell.fill = PatternFill("solid", fgColor=LIGHT_YELLOW)
-        status_cell.alignment = Alignment(horizontal="center", vertical="center")
+        if status_column is not None:
+            status_cell = ws.cell(row_number, status_column)
+            status_cell.fill = PatternFill("solid", fgColor=LIGHT_YELLOW)
+            status_cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    for index, width in enumerate(widths, 1):
-        ws.column_dimensions[get_column_letter(index)].width = width
-    ws.freeze_panes = f"A{header_row + 1}"
-    if rows:
-        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(headers))}{header_row + len(rows)}"
-    ws.sheet_view.showGridLines = False
-    ws.page_setup.orientation = "landscape"
-    ws.page_setup.fitToWidth = 1
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    return header_row + len(rows) + 1
 
 
 def _summary_text(data: dict[str, Any], category: str) -> str:
@@ -85,12 +94,29 @@ def _summary_text(data: dict[str, Any], category: str) -> str:
     return " / ".join(high_priority)
 
 
-def _build_summary_sheet(
-    ws: Worksheet,
+def _configure_sheet(ws: Worksheet) -> None:
+    widths = [18, 30, 20, 24, 26, 50, 14]
+    for index, width in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    ws.freeze_panes = "A3"
+    ws.sheet_view.showGridLines = False
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = "1:2"
+
+
+def build_business_evaluation_excel(
     data: dict[str, Any],
     source_documents: list[str],
-) -> None:
-    _title(ws, "事業性評価シート", 6)
+) -> bytes:
+    """確認前の事業性評価データを単一シートのExcelブックにする。"""
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "事業性評価シート"
+    _title(sheet, "事業性評価シート")
+
     metadata = [
         ("作成状態", "要職員確認"),
         ("読取エンジン", "Azure AI Document Intelligence"),
@@ -99,83 +125,44 @@ def _build_summary_sheet(
         ("評価基準日", data["customer_attributes"].get("評価基準日", "")),
     ]
     for row_number, (label, value) in enumerate(metadata, 3):
-        ws.cell(row_number, 1, label).font = Font(bold=True, color=NAVY)
-        ws.cell(row_number, 2, value)
-    ws["B3"].fill = PatternFill("solid", fgColor=YELLOW)
-    ws["B3"].font = Font(bold=True, color=NAVY)
+        sheet.cell(row_number, 1, label).font = Font(bold=True, color=NAVY)
+        sheet.cell(row_number, 2, value)
+    sheet["B3"].fill = PatternFill("solid", fgColor=YELLOW)
+    sheet["B3"].font = Font(bold=True, color=NAVY)
 
-    source_header_row = 9
-    ws.cell(source_header_row, 1, "入力資料").font = Font(bold=True, color=NAVY, size=12)
-    for index, filename in enumerate(source_documents, source_header_row + 1):
-        ws.cell(index, 1, f"{index - source_header_row}. {filename}")
+    current_row = 9
+    _section_header(sheet, current_row, "入力資料")
+    source_rows = [[index, filename] for index, filename in enumerate(source_documents, 1)]
+    current_row = _write_table(sheet, current_row + 1, ["No.", "ファイル名"], source_rows)
 
-    evaluation_header_row = source_header_row + len(source_documents) + 2
-    ws.cell(evaluation_header_row, 1, "評価領域").font = Font(bold=True, color=WHITE)
-    ws.cell(evaluation_header_row, 1).fill = PatternFill("solid", fgColor=BLUE)
-    ws.merge_cells(
-        start_row=evaluation_header_row,
-        start_column=2,
-        end_row=evaluation_header_row,
-        end_column=5,
-    )
-    ws.cell(evaluation_header_row, 2, "AI整理結果の概要").font = Font(bold=True, color=WHITE)
-    ws.cell(evaluation_header_row, 2).fill = PatternFill("solid", fgColor=BLUE)
-    ws.cell(evaluation_header_row, 6, "職員確認").font = Font(bold=True, color=WHITE)
-    ws.cell(evaluation_header_row, 6).fill = PatternFill("solid", fgColor=BLUE)
-
-    thin = Side(style="thin", color=GRID)
+    current_row += 1
+    _section_header(sheet, current_row, "評価概要")
     categories = ["顧客属性", "財務分析", "取引先", "SWOT分析", "事業課題"]
-    for row_number, category in enumerate(categories, evaluation_header_row + 1):
-        ws.cell(row_number, 1, category)
-        ws.merge_cells(start_row=row_number, start_column=2, end_row=row_number, end_column=5)
-        ws.cell(row_number, 2, _summary_text(data, category))
-        ws.cell(row_number, 6, "要確認")
-        for column in range(1, 7):
-            cell = ws.cell(row_number, column)
-            cell.border = Border(left=thin, right=thin, top=thin, bottom=thin)
-            cell.alignment = Alignment(vertical="top", wrap_text=True)
-            cell.fill = PatternFill("solid", fgColor=LIGHT_BLUE if row_number % 2 == 0 else WHITE)
-        ws.cell(row_number, 6).fill = PatternFill("solid", fgColor=LIGHT_YELLOW)
-        ws.cell(row_number, 6).alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[row_number].height = 46
-
-    warning_row = evaluation_header_row + len(categories) + 2
-    ws.merge_cells(start_row=warning_row, start_column=1, end_row=warning_row, end_column=6)
-    ws.cell(
-        warning_row,
-        1,
-        "注意: AIの抽出・分析結果は参考情報です。原資料と照合し、担当職員が確認・修正してから利用してください。",
+    summary_rows = [[category, _summary_text(data, category), "要確認"] for category in categories]
+    current_row = _write_table(
+        sheet,
+        current_row + 1,
+        ["評価領域", "AI整理結果の概要", "職員確認"],
+        summary_rows,
+        status_column=3,
     )
-    ws.cell(warning_row, 1).fill = PatternFill("solid", fgColor=LIGHT_YELLOW)
-    ws.cell(warning_row, 1).font = Font(bold=True, color=NAVY)
-    ws.cell(warning_row, 1).alignment = Alignment(wrap_text=True, vertical="center")
-    ws.row_dimensions[warning_row].height = 34
-    for index, width in enumerate([20, 22, 22, 22, 22, 14], 1):
-        ws.column_dimensions[get_column_letter(index)].width = width
-    ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "A3"
 
-
-def build_business_evaluation_excel(
-    data: dict[str, Any],
-    source_documents: list[str],
-) -> bytes:
-    """確認前の事業性評価データを6シートのExcelブックにする。"""
-    workbook = Workbook()
-    summary = workbook.active
-    summary.title = "評価サマリー"
-    _build_summary_sheet(summary, data, source_documents)
-
-    customer = workbook.create_sheet("顧客属性")
-    _title(customer, "顧客属性", 4)
+    current_row += 1
+    _section_header(sheet, current_row, "顧客属性")
     customer_rows = [
         [key, value, "要確認", ""]
         for key, value in data["customer_attributes"].items()
     ]
-    _write_table(customer, ["項目", "内容", "職員確認", "備考"], customer_rows, [22, 48, 14, 30])
+    current_row = _write_table(
+        sheet,
+        current_row + 1,
+        ["項目", "内容", "職員確認", "備考"],
+        customer_rows,
+        status_column=3,
+    )
 
-    financial = workbook.create_sheet("財務分析")
-    _title(financial, "財務分析", 7)
+    current_row += 1
+    _section_header(sheet, current_row, "財務分析")
     financial_rows = [
         [
             row.get("項目", ""),
@@ -188,15 +175,16 @@ def build_business_evaluation_excel(
         ]
         for row in data["financial_analysis"]
     ]
-    _write_table(
-        financial,
+    current_row = _write_table(
+        sheet,
+        current_row + 1,
         ["項目", "2024年3月期", "2025年3月期", "2026年3月期", "単位", "AI評価", "職員確認"],
         financial_rows,
-        [20, 16, 16, 16, 10, 52, 14],
+        status_column=7,
     )
 
-    partners = workbook.create_sheet("取引先")
-    _title(partners, "主要な販売先・仕入先", 6)
+    current_row += 1
+    _section_header(sheet, current_row, "主要な販売先・仕入先")
     partner_rows = [
         [
             row.get("区分", ""),
@@ -208,23 +196,30 @@ def build_business_evaluation_excel(
         ]
         for row in data["trading_partners"]
     ]
-    _write_table(
-        partners,
+    current_row = _write_table(
+        sheet,
+        current_row + 1,
         ["区分", "取引先名", "取引比率", "決済条件", "取引状況・リスク", "職員確認"],
         partner_rows,
-        [12, 28, 18, 24, 52, 14],
+        status_column=6,
     )
 
-    swot_sheet = workbook.create_sheet("SWOT分析")
-    _title(swot_sheet, "SWOT分析", 4)
+    current_row += 1
+    _section_header(sheet, current_row, "SWOT分析")
     swot_rows = [
         [category, values.get("内容", ""), values.get("評価根拠", ""), "要確認"]
         for category, values in data["swot_analysis"].items()
     ]
-    _write_table(swot_sheet, ["区分", "内容", "評価根拠", "職員確認"], swot_rows, [14, 58, 38, 14])
+    current_row = _write_table(
+        sheet,
+        current_row + 1,
+        ["区分", "内容", "評価根拠", "職員確認"],
+        swot_rows,
+        status_column=4,
+    )
 
-    challenges = workbook.create_sheet("事業課題")
-    _title(challenges, "事業課題と対応方針", 7)
+    current_row += 1
+    _section_header(sheet, current_row, "事業課題と対応方針")
     challenge_rows = [
         [
             row.get("優先度", ""),
@@ -237,13 +232,32 @@ def build_business_evaluation_excel(
         ]
         for row in data["business_challenges"]
     ]
-    _write_table(
-        challenges,
+    current_row = _write_table(
+        sheet,
+        current_row + 1,
         ["優先度", "分類", "事業課題", "現状・背景", "対応案", "KPI", "職員確認"],
         challenge_rows,
-        [12, 14, 32, 45, 45, 30, 14],
+        status_column=7,
     )
 
+    current_row += 1
+    sheet.merge_cells(
+        start_row=current_row,
+        start_column=1,
+        end_row=current_row,
+        end_column=MAX_COLUMNS,
+    )
+    warning = sheet.cell(
+        current_row,
+        1,
+        "注意: AIの抽出・分析結果は参考情報です。原資料と照合し、担当職員が確認・修正してから利用してください。",
+    )
+    warning.fill = PatternFill("solid", fgColor=LIGHT_YELLOW)
+    warning.font = Font(bold=True, color=NAVY)
+    warning.alignment = Alignment(wrap_text=True, vertical="center")
+    sheet.row_dimensions[current_row].height = 34
+
+    _configure_sheet(sheet)
     stream = BytesIO()
     workbook.save(stream)
     return stream.getvalue()

@@ -20,7 +20,7 @@ Streamlit
   ├─ 一時ログインコードをローカル照合
   ├─ 固定サンプルの事業性評価結果を表示
   ├─ メモリ内だけで履歴と監査ログを保持
-  └─ openpyxlで6シートの事業性評価Excelを生成
+  └─ openpyxlで単一シートの事業性評価Excelを生成
 ```
 
 Azure AI、Blob Storage、Key Vault、FastAPIへは接続しません。アップロードされたファイルも解析・保存しません。

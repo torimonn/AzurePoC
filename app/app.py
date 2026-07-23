@@ -313,15 +313,18 @@ def document_page() -> None:
                 st.session_state.document_sources,
             )
             step(4, "Excelを取得")
-            if st.download_button(
+            downloaded = st.download_button(
                 "事業性評価シートをダウンロード",
                 data=excel_data,
                 file_name="事業性評価シート_株式会社遠州テクノ.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 type="primary",
                 width="stretch",
-            ):
+            )
+            st.caption("保存先はブラウザーで設定されている「ダウンロード」フォルダーです。")
+            if downloaded:
                 audit("business_evaluation_excel_downloaded")
+                st.success("Excelのダウンロードを開始しました。ブラウザーのダウンロード一覧を確認してください。")
 
 
 def minutes_page() -> None:
