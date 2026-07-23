@@ -87,11 +87,6 @@ output "storage_blob_endpoint" {
   value       = var.create_storage_account ? "https://${module.storage_account[0].name}.blob.core.windows.net/" : null
 }
 
-output "blob_container_name" {
-  description = "第3段階以降に作成するBlob Container名。"
-  value       = var.blob_container_name
-}
-
 output "blob_private_dns_zone_id" {
   description = "Blob用Private DNS Zone ID。"
   value       = module.private_dns_zones["blob"].resource_id

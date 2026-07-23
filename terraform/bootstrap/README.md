@@ -1,6 +1,6 @@
 # bootstrap root module
 
-Terraform state専用のResource Group、Storage Account、`tfstate` Blob Containerを作成します。OCR-Demoアプリ用Storage Accountとは分離しています。
+Terraform state専用のResource Group、Storage Account、`tfstate` Blob Containerを作成します。OCR-Demoのアプリ用Storage Accountとは分離しています。
 
 ## 初回構築
 
@@ -29,10 +29,11 @@ terraform init -migrate-state \
   -backend-config="storage_account_name=<tfstate-storage-account-name>" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=ocr-demo/bootstrap/terraform.tfstate" \
-  -backend-config="use_azuread_auth=true"
+  -backend-config="use_azuread_auth=true" \
+  -backend-config="use_cli=true"
 ```
 
-backendへStorage Account Keyや接続文字列は保存しません。Cloud ShellではAzure CLI認証、管理VMではManaged IdentityまたはAzure CLIによるMicrosoft Entra ID認証を使用します。
+backendへStorage Account Keyや接続文字列は保存しません。Cloud Shellでは `use_azuread_auth = true` と `use_cli = true` を指定します。管理VMではManaged IdentityまたはAzure CLIによるMicrosoft Entra ID認証を使用します。
 
 Cloud Shellから初回作成できるよう、exampleではstate StorageのPublic Network AccessとNetwork Ruleの`Allow`を使用しています。閉域管理VMから到達できるPrivate Endpoint、Firewall許可、名前解決が準備できた時点で、組織のネットワーク方針に従って制限してください。
 

@@ -1,3 +1,4 @@
+# Terraform generated files and local settings
 .terraform/
 *.tfstate
 *.tfstate.*
@@ -9,9 +10,33 @@ terraform/bootstrap/backend.tf
 plan.txt
 crash.log
 crash.*.log
-dist/
-.tools/
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Local development and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Generated output and offline transfer artifacts
+dist/
+output/
+outputs/
+tmp/
+.tools/
+wheelhouse/
+provider-mirror/
+*.bundle
+*.tar
+*.tar.gz
+*.zip

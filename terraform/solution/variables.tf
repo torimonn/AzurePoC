@@ -23,7 +23,7 @@ variable "name_prefix" {
 }
 
 variable "resource_group_name" {
-  description = "OCR-Demo Resource Group名。"
+  description = "OCR-Demo基盤のResource Group名。"
   type        = string
   default     = "rg-ocr-demo-dev"
 }
@@ -145,31 +145,8 @@ variable "ai_project_name" {
   default     = "proj-default"
 }
 
-variable "enable_ai_private_only_access" {
-  description = "trueの場合、AI ServicesのPublic Network Accessを無効化し、Network ACLをDenyにします。"
-  type        = bool
-  default     = true
-}
-
-variable "ai_public_network_access_enabled" {
-  description = "enable_ai_private_only_accessがfalseの場合に使うAI ServicesのPublic Network Access設定。"
-  type        = bool
-  default     = true
-}
-
-variable "ai_network_default_action" {
-  description = "enable_ai_private_only_accessがfalseの場合に使うAI Services Network ACLの既定アクション。"
-  type        = string
-  default     = "Allow"
-
-  validation {
-    condition     = contains(["Allow", "Deny"], var.ai_network_default_action)
-    error_message = "ai_network_default_actionはAllowまたはDenyを指定してください。"
-  }
-}
-
 variable "create_storage_account" {
-  description = "第1段階でアプリ用Storage Accountを作成するかどうか。"
+  description = "初期基盤でアプリ用Storage Accountを作成するかどうか。"
   type        = bool
   default     = true
 }
@@ -218,56 +195,10 @@ variable "storage_account_access_tier" {
   }
 }
 
-variable "enable_storage_private_only_access" {
-  description = "trueの場合、Storage AccountのPublic Network Accessを無効化し、Network RuleをDenyにします。"
-  type        = bool
-  default     = true
-}
-
-variable "storage_public_network_access_enabled" {
-  description = "enable_storage_private_only_accessがfalseの場合に使うStorage AccountのPublic Network Access設定。"
-  type        = bool
-  default     = true
-}
-
-variable "storage_network_default_action" {
-  description = "enable_storage_private_only_accessがfalseの場合に使うStorage Network Ruleの既定アクション。"
-  type        = string
-  default     = "Allow"
-
-  validation {
-    condition     = contains(["Allow", "Deny"], var.storage_network_default_action)
-    error_message = "storage_network_default_actionはAllowまたはDenyを指定してください。"
-  }
-}
-
 variable "storage_network_bypass" {
   description = "Storage Network Ruleのバイパス設定。"
   type        = set(string)
   default     = ["AzureServices"]
-}
-
-variable "storage_shared_access_key_enabled" {
-  description = "Storage AccountのShared Key認証。第1段階PoCでは一時的にtrueとします。"
-  type        = bool
-  default     = true
-}
-
-variable "blob_container_name" {
-  description = "第3段階以降に作成するアプリ用Blob Container名。第1段階では作成しません。"
-  type        = string
-  default     = "documents"
-}
-
-variable "create_blob_container" {
-  description = "第1段階でBlob Containerを作成するかどうか。第1段階ではfalse固定です。"
-  type        = bool
-  default     = false
-
-  validation {
-    condition     = !var.create_blob_container
-    error_message = "第1段階ではcreate_blob_containerをfalseにしてください。"
-  }
 }
 
 variable "enable_state_storage_private_endpoint" {
@@ -299,7 +230,7 @@ variable "state_storage_account_name" {
 }
 
 variable "create_key_vault" {
-  description = "第1段階でKey Vaultを作成するかどうか。"
+  description = "初期基盤でKey Vaultを作成するかどうか。"
   type        = bool
   default     = true
 }
@@ -323,29 +254,6 @@ variable "key_vault_sku_name" {
   validation {
     condition     = contains(["standard", "premium"], var.key_vault_sku_name)
     error_message = "key_vault_sku_nameはstandardまたはpremiumを指定してください。"
-  }
-}
-
-variable "enable_key_vault_private_only_access" {
-  description = "trueの場合、Key VaultのPublic Network Accessを無効化し、Network ACLをDenyにします。"
-  type        = bool
-  default     = true
-}
-
-variable "key_vault_public_network_access_enabled" {
-  description = "enable_key_vault_private_only_accessがfalseの場合に使うKey VaultのPublic Network Access設定。"
-  type        = bool
-  default     = true
-}
-
-variable "key_vault_network_default_action" {
-  description = "enable_key_vault_private_only_accessがfalseの場合に使うKey Vault Network ACLの既定アクション。"
-  type        = string
-  default     = "Allow"
-
-  validation {
-    condition     = contains(["Allow", "Deny"], var.key_vault_network_default_action)
-    error_message = "key_vault_network_default_actionはAllowまたはDenyを指定してください。"
   }
 }
 
@@ -384,9 +292,9 @@ variable "create_admin_vm" {
 }
 
 variable "enable_admin_vm_entra_id_login" {
-  description = "管理VMへAADSSHLoginForLinux拡張を導入し、Microsoft Entra ID SSH認証を有効にするかどうか。"
+  description = "管理VMへAADSSHLoginForLinux拡張を導入し、Microsoft Entra ID SSH認証を有効にするかどうか。初期Hub未接続時はfalseにします。"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "admin_vm_login_principal_id" {

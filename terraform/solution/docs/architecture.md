@@ -1,4 +1,4 @@
-# 第1段階アーキテクチャ
+# OCR-Demo 初期基盤アーキテクチャ
 
 ## root moduleの依存関係
 
@@ -11,7 +11,7 @@ Resource Group
    ├─ ACA用Subnet（NSGなし、UDRは有効時のみ）
    ├─ Private Endpoint用Subnet（UDRなし）
    └─ 管理VM用Subnet（NSG、UDRは有効時のみ）
-      └─ 管理VM（Public IPなし、10.30.0.196、AADSSHLoginForLinux）
+      └─ 管理VM（Public IPなし、10.30.0.196、初期はSSH公開鍵認証）
 
 VNet
 └─ Private DNS Zone 5個とVNet Link
@@ -43,10 +43,10 @@ Private DNS Zone AVMを `for_each` で5回呼び出し、各ZoneをSpoke VNetへ
 - `privatelink.blob.core.windows.net`
 - `privatelink.vaultcore.azure.net`
 
-DNS Private ResolverとHub VNetへのDNS Linkは、第2段階のHub共通基盤側で管理します。
+DNS Private ResolverとHub VNetへのDNS Linkは、Hub接続フェーズの共通基盤側で管理します。
 
 ## 管理VMアクセス
 
-管理VMはSystem Assigned Managed Identityと `AADSSHLoginForLinux` 拡張を使用します。接続者のObject IDが指定された場合、専用Resource Groupのスコープで `Virtual Machine Administrator Login` を付与します。Azure Bastion、Hub接続、MFA、条件付きアクセス、PIMは共通基盤側の設計対象です。
+管理VMはSystem Assigned Managed Identityを持ちます。初期値ではSSH公開鍵認証だけを使用し、`AADSSHLoginForLinux` 拡張は作成しません。Hub接続と外向き通信を確認して `enable_admin_vm_entra_id_login = true` にした場合だけ拡張を導入します。接続者のObject IDが指定された場合、専用Resource Groupのスコープで `Virtual Machine Administrator Login` を付与します。Azure Bastion、Hub接続、MFA、条件付きアクセス、PIMは共通基盤側の設計対象です。
 
 VMにはPublic IPを作成しません。AADSSHLoginForLinuxの導入やOS更新に必要な外向き通信は、Hub Firewallなどの明示的な送信経路で許可します。
